@@ -25,6 +25,10 @@ export const items = sqliteTable(
     portionUnit: text("portion_unit"),
     portionAmount: real("portion_amount"),
     isOriginal: integer("is_original", { mode: "boolean" }).notNull().default(true),
+    // Phase 4: Recurring item tracking
+    isRecurring: integer("is_recurring", { mode: "boolean" }).notNull().default(false),
+    recurringInterval: text("recurring_interval", { enum: ["weekly", "biweekly", "monthly"] }),
+    lastPurchaseDate: integer("last_purchase_date", { mode: "timestamp" }),
   },
   (table) => ({
     // Partial unique index: only applies to original items (parentId IS NULL)
@@ -37,5 +41,66 @@ export const items = sqliteTable(
   })
 );
 
+// Phase 4: Event history for trend analysis
+export const itemEvents = sqliteTable(
+  "item_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    itemId: integer("item_id").references(() => items.id, { onDelete: "set null" }),
+    barcode: text("barcode").notNull(),
+    name: text("name").notNull(),
+    category: text("category", { enum: ["fridge", "freezer", "pantry"] }).notNull(),
+    eventType: text("event_type", {
+      enum: ["added", "quantity_increment", "quantity_decrement", "deleted", "usage_updated"],
+    }).notNull(),
+    quantityChange: integer("quantity_change"),
+    usageLevelBefore: integer("usage_level_before"),
+    usageLevelAfter: integer("usage_level_after"),
+    timestamp: integer("timestamp", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    metadata: text("metadata", { mode: "json" }).$type<Record<string, any>>().default(sql`'{}'`),
+  },
+  (table) => ({
+    barcodeIdx: index("item_events_barcode_category_idx").on(
+      table.barcode,
+      table.category,
+      table.timestamp
+    ),
+    timestampIdx: index("item_events_timestamp_idx").on(table.timestamp),
+  })
+);
+
+// Phase 4: Shopping list items
+export const shoppingListItems = sqliteTable(
+  "shopping_list_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    barcode: text("barcode"),
+    name: text("name").notNull(),
+    category: text("category", { enum: ["fridge", "freezer", "pantry"] })
+      .notNull()
+      .default("pantry"),
+    source: text("source", { enum: ["manual", "auto_suggestion", "recurring"] }).notNull(),
+    isPurchased: integer("is_purchased", { mode: "boolean" }).notNull().default(false),
+    predictedPurchaseDate: integer("predicted_purchase_date", { mode: "timestamp" }),
+    priority: text("priority", { enum: ["high", "medium", "low"] })
+      .notNull()
+      .default("medium"),
+    addedAt: integer("added_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    purchasedAt: integer("purchased_at", { mode: "timestamp" }),
+    notes: text("notes"),
+  },
+  (table) => ({
+    purchasedIdx: index("shopping_list_is_purchased_idx").on(table.isPurchased),
+  })
+);
+
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
+export type ItemEvent = typeof itemEvents.$inferSelect;
+export type NewItemEvent = typeof itemEvents.$inferInsert;
+export type ShoppingListItem = typeof shoppingListItems.$inferSelect;
+export type NewShoppingListItem = typeof shoppingListItems.$inferInsert;

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { items } from "@/lib/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { logItemEvent } from "@/lib/events";
 
 // GET /api/items - List all items with child count
 export async function GET() {
@@ -79,6 +80,17 @@ export async function POST(request: Request) {
         .where(eq(items.id, existingItem[0].id))
         .returning();
 
+      // Log quantity increment event
+      await logItemEvent({
+        itemId: updatedItem.id,
+        barcode: updatedItem.barcode,
+        name: updatedItem.name,
+        category: updatedItem.category,
+        eventType: "quantity_increment",
+        quantityChange: 1,
+        metadata: { newQuantity: updatedItem.quantity },
+      });
+
       return NextResponse.json(updatedItem, { status: 200 });
     }
 
@@ -122,6 +134,20 @@ export async function POST(request: Request) {
         brand: productBrand,
       })
       .returning();
+
+    // Log added event
+    await logItemEvent({
+      itemId: newItem.id,
+      barcode: newItem.barcode,
+      name: newItem.name,
+      category: newItem.category,
+      eventType: "added",
+      quantityChange: 1,
+      metadata: {
+        brand: productBrand,
+        expirationDate: parsedExpirationDate?.toISOString(),
+      },
+    });
 
     return NextResponse.json(newItem, { status: 201 });
   } catch (error) {

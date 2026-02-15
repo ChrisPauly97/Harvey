@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { items } from "@/lib/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { logItemEvent } from "@/lib/events";
 
 // DELETE /api/items/[id] - Delete item completely
 export async function DELETE(
@@ -34,6 +35,12 @@ export async function DELETE(
       );
     }
 
+    // Fetch the item(s) being deleted to log events
+    const itemsToDelete = await db
+      .select()
+      .from(items)
+      .where(cascade && children.length > 0 ? or(eq(items.id, id), eq(items.parentId, id)) : eq(items.id, id));
+
     if (cascade && children.length > 0) {
       // Delete parent AND all children
       await db
@@ -42,6 +49,19 @@ export async function DELETE(
     } else {
       // Normal delete (no children or child being deleted)
       await db.delete(items).where(eq(items.id, id));
+    }
+
+    // Log deleted events for all deleted items
+    for (const deletedItem of itemsToDelete) {
+      await logItemEvent({
+        itemId: deletedItem.id,
+        barcode: deletedItem.barcode,
+        name: deletedItem.name,
+        category: deletedItem.category,
+        eventType: "deleted",
+        quantityChange: -deletedItem.quantity,
+        metadata: { quantity: deletedItem.quantity },
+      });
     }
 
     return NextResponse.json({ success: true, deleted: true });
@@ -92,14 +112,42 @@ export async function PATCH(
           .where(eq(items.id, id))
           .returning();
 
+        // Log quantity decrement event
+        await logItemEvent({
+          itemId: updatedItem.id,
+          barcode: updatedItem.barcode,
+          name: updatedItem.name,
+          category: updatedItem.category,
+          eventType: "quantity_decrement",
+          quantityChange: -1,
+          metadata: { newQuantity: updatedItem.quantity },
+        });
+
         return NextResponse.json(updatedItem);
       } else {
+        // Log deleted event when quantity reaches 0
+        await logItemEvent({
+          itemId: item.id,
+          barcode: item.barcode,
+          name: item.name,
+          category: item.category,
+          eventType: "deleted",
+          quantityChange: -1,
+          metadata: { quantity: item.quantity },
+        });
+
         await db.delete(items).where(eq(items.id, id));
         return NextResponse.json({ success: true, deleted: true });
       }
     }
 
     // Handle field updates
+    const [currentItem] = await db.select().from(items).where(eq(items.id, id));
+
+    if (!currentItem) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
     const updateData: any = {};
     if (usageLevel !== undefined) updateData.usageLevel = usageLevel;
     if (expirationDate !== undefined) updateData.expirationDate = expirationDate ? new Date(expirationDate) : null;
@@ -118,6 +166,20 @@ export async function PATCH(
       .set(updateData)
       .where(eq(items.id, id))
       .returning();
+
+    // Log usage_updated event if usageLevel changed
+    if (usageLevel !== undefined && usageLevel !== currentItem.usageLevel) {
+      await logItemEvent({
+        itemId: updatedItem.id,
+        barcode: updatedItem.barcode,
+        name: updatedItem.name,
+        category: updatedItem.category,
+        eventType: "usage_updated",
+        usageLevelBefore: currentItem.usageLevel || undefined,
+        usageLevelAfter: updatedItem.usageLevel || undefined,
+        metadata: { changedFields: Object.keys(updateData) },
+      });
+    }
 
     return NextResponse.json(updatedItem);
   } catch (error) {

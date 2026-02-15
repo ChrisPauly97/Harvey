@@ -63,6 +63,9 @@ drizzle/
 
 public/
 └── manifest.json      # PWA manifest for app installation
+
+.beads/
+└── issues.jsonl      # Beads issue tracking system, look here for new tasks
 ```
 
 ## Database Schema
