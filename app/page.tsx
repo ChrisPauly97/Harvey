@@ -50,7 +50,6 @@ export default function Home() {
 
       if (!response.ok) throw new Error("Failed to delete item");
 
-      // Item was deleted, remove from state
       setItems(items.filter((item) => item.id !== id));
     } catch (err) {
       alert("Failed to delete item. Please try again.");
@@ -65,7 +64,6 @@ export default function Home() {
     const item = items.find((i) => i.id === id);
     if (!item) return;
 
-    // Confirm if decrementing will delete the item
     if (action === "decrement" && item.quantity === 1) {
       const confirmed = window.confirm(
         `This will remove "${item.name}" from your inventory. Continue?`
@@ -87,10 +85,8 @@ export default function Home() {
       const data = await response.json();
 
       if (data.deleted) {
-        // Item was deleted (quantity reached 0)
         setItems(items.filter((item) => item.id !== id));
       } else {
-        // Update quantity in state
         setItems(
           items.map((item) => (item.id === id ? { ...item, ...data } : item))
         );
@@ -105,87 +101,111 @@ export default function Home() {
     filter === "all" ? items : items.filter((item) => item.category === filter);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-green-50 to-white">
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-bold text-green-900">
-            🍽️ Harvey
-          </h1>
-          <Link
-            href="/scan"
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold text-lg shadow-lg transition-colors"
-          >
-            + Add Item
-          </Link>
+    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-2xl shadow-md">
+                🍽️
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                Harvey
+              </h1>
+            </div>
+            <Link
+              href="/scan"
+              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
+            >
+              <span className="text-lg">+</span> Add Item
+            </Link>
+          </div>
         </div>
+      </div>
 
+      <div className="max-w-3xl mx-auto px-4 py-6">
         {/* Filter Buttons */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           <button
             onClick={() => setFilter("all")}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "all"
-                ? "bg-green-500 text-white shadow-md"
-                : "bg-white text-gray-700 hover:bg-gray-100"
+                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md"
+                : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200"
             }`}
           >
-            All ({items.length})
+            All <span className="opacity-70">({items.length})</span>
           </button>
           <button
             onClick={() => setFilter("fridge")}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "fridge"
-                ? "bg-blue-500 text-white shadow-md"
-                : "bg-white text-gray-700 hover:bg-gray-100"
+                ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-md"
+                : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200"
             }`}
           >
-            🧊 Fridge ({items.filter((i) => i.category === "fridge").length})
+            🧊 Fridge{" "}
+            <span className="opacity-70">
+              ({items.filter((i) => i.category === "fridge").length})
+            </span>
           </button>
           <button
             onClick={() => setFilter("pantry")}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "pantry"
-                ? "bg-amber-500 text-white shadow-md"
-                : "bg-white text-gray-700 hover:bg-gray-100"
+                ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md"
+                : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200"
             }`}
           >
-            🥫 Pantry ({items.filter((i) => i.category === "pantry").length})
+            🥫 Pantry{" "}
+            <span className="opacity-70">
+              ({items.filter((i) => i.category === "pantry").length})
+            </span>
           </button>
         </div>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-            <p className="mt-4 text-gray-600">Loading your inventory...</p>
+          <div className="text-center py-16">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-emerald-500"></div>
+            <p className="mt-4 text-gray-600 font-medium">
+              Loading inventory...
+            </p>
           </div>
         ) : filteredItems.length === 0 && items.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-md">
-            <p className="text-xl text-gray-600 mb-4">Your kitchen is empty!</p>
-            <p className="text-gray-500 mb-6">
+          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
+            <div className="text-6xl mb-4">📦</div>
+            <p className="text-xl font-semibold text-gray-900 mb-2">
+              Your kitchen is empty
+            </p>
+            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
               Start scanning items to track your inventory
             </p>
             <Link
               href="/scan"
-              className="inline-block bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold"
+              className="inline-block bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all active:scale-95"
             >
               Scan Your First Item
             </Link>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-md">
-            <p className="text-xl text-gray-600">
+          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
+            <div className="text-6xl mb-4">
+              {filter === "fridge" ? "🧊" : "🥫"}
+            </div>
+            <p className="text-lg font-medium text-gray-600">
               No items in {filter === "fridge" ? "fridge" : "pantry"}
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <p className="text-gray-600">
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500 font-medium px-1">
               {filteredItems.length}{" "}
               {filteredItems.length === 1 ? "item" : "items"}
               {filter !== "all" &&
