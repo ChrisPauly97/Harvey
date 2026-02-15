@@ -153,8 +153,13 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
       />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-          {error}
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
+          <p className="font-semibold mb-2">{error}</p>
+          <p className="text-xs opacity-90">
+            <strong>iOS Tip:</strong> If scanning doesn&apos;t work, try using
+            manual entry below or enable camera access in Settings → Safari →
+            Camera.
+          </p>
         </div>
       )}
 
