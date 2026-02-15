@@ -1,6 +1,7 @@
 "use client";
 
 import ItemCard from "@/components/ItemCard";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Item } from "@/lib/schema";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -101,9 +102,9 @@ export default function Home() {
     filter === "all" ? items : items.filter((item) => item.category === filter);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
+      <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -114,12 +115,15 @@ export default function Home() {
                 Harvey
               </h1>
             </div>
-            <Link
-              href="/scan"
-              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
-            >
-              <span className="text-lg">+</span> Add Item
-            </Link>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Link
+                href="/scan"
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
+              >
+                <span className="text-lg">+</span> Add Item
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -132,7 +136,7 @@ export default function Home() {
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "all"
                 ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md"
-                : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200"
+                : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
             }`}
           >
             All <span className="opacity-70">({items.length})</span>
@@ -142,7 +146,7 @@ export default function Home() {
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "fridge"
                 ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-md"
-                : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200"
+                : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
             }`}
           >
             🧊 Fridge{" "}
@@ -155,7 +159,7 @@ export default function Home() {
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "pantry"
                 ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md"
-                : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200"
+                : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
             }`}
           >
             🥫 Pantry{" "}
@@ -166,25 +170,25 @@ export default function Home() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-4">
             {error}
           </div>
         )}
 
         {loading ? (
           <div className="text-center py-16">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-emerald-500"></div>
-            <p className="mt-4 text-gray-600 font-medium">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 dark:border-gray-700 border-t-emerald-500"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">
               Loading inventory...
             </p>
           </div>
         ) : filteredItems.length === 0 && items.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
+          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="text-6xl mb-4">📦</div>
-            <p className="text-xl font-semibold text-gray-900 mb-2">
+            <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
               Your kitchen is empty
             </p>
-            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
               Start scanning items to track your inventory
             </p>
             <Link
@@ -195,17 +199,17 @@ export default function Home() {
             </Link>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
+          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="text-6xl mb-4">
               {filter === "fridge" ? "🧊" : "🥫"}
             </div>
-            <p className="text-lg font-medium text-gray-600">
+            <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
               No items in {filter === "fridge" ? "fridge" : "pantry"}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-gray-500 font-medium px-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium px-1">
               {filteredItems.length}{" "}
               {filteredItems.length === 1 ? "item" : "items"}
               {filter !== "all" &&
