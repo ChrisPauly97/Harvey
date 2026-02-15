@@ -11,25 +11,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const [shoppingListCount, setShoppingListCount] = useState(0);
+  const [recipeCount, setRecipeCount] = useState(0);
 
   useEffect(() => {
-    async function fetchCount() {
+    async function fetchCounts() {
       try {
-        const response = await fetch("/api/shopping-list");
-        if (response.ok) {
-          const data = await response.json();
+        // Fetch shopping list count
+        const shoppingResponse = await fetch("/api/shopping-list");
+        if (shoppingResponse.ok) {
+          const data = await shoppingResponse.json();
           const unpurchasedCount = (data.manual || []).filter((i: any) => !i.isPurchased).length +
             (data.recurring || []).filter((i: any) => !i.isPurchased).length;
           setShoppingListCount(unpurchasedCount);
         }
+
+        // Fetch recipe count
+        const recipesResponse = await fetch("/api/recipes/suggestions?limit=100");
+        if (recipesResponse.ok) {
+          const data = await recipesResponse.json();
+          setRecipeCount((data.recipes || []).length);
+        }
       } catch (error) {
-        console.error("Failed to fetch shopping list count:", error);
+        console.error("Failed to fetch counts:", error);
       }
     }
 
-    fetchCount();
-    // Refresh count every 30 seconds
-    const interval = setInterval(fetchCount, 30000);
+    fetchCounts();
+    // Refresh counts every 60 seconds
+    const interval = setInterval(fetchCounts, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -37,7 +46,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body>
         {children}
-        <BottomNav shoppingListCount={shoppingListCount} />
+        <BottomNav shoppingListCount={shoppingListCount} recipeCount={recipeCount} />
       </body>
     </html>
   );

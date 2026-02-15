@@ -98,6 +98,48 @@ export const shoppingListItems = sqliteTable(
   })
 );
 
+// Phase 5: Recipe suggestion system
+export interface RecipeIngredient {
+  name: string; // e.g., "chicken breast"
+  measure: string; // e.g., "500g" or "2 cups"
+}
+
+export const recipes = sqliteTable(
+  "recipes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    externalId: text("external_id").unique(),
+    source: text("source", { enum: ["themealdb", "custom"] })
+      .notNull()
+      .default("themealdb"),
+    name: text("name").notNull(),
+    category: text("category"), // "Beef", "Vegetarian", "Dessert"
+    area: text("area"), // "Italian", "Mexican", "British"
+    instructions: text("instructions").notNull(),
+    imageUrl: text("image_url"),
+    youtubeUrl: text("youtube_url"),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .default(sql`'[]'`),
+    ingredients: text("ingredients", { mode: "json" })
+      .$type<RecipeIngredient[]>()
+      .default(sql`'[]'`),
+    servings: integer("servings").default(4),
+    prepTime: integer("prep_time"),
+    cookTime: integer("cook_time"),
+    cachedAt: integer("cached_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    sourceIdx: index("recipes_source_idx").on(table.source),
+    categoryIdx: index("recipes_category_idx").on(table.category),
+  })
+);
+
+export type Recipe = typeof recipes.$inferSelect;
+export type NewRecipe = typeof recipes.$inferInsert;
+
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 export type ItemEvent = typeof itemEvents.$inferSelect;
