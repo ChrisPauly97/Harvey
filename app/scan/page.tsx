@@ -107,7 +107,7 @@ export default function ScanPage() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold mb-4">Manual Entry</h2>
               <p className="text-gray-600 mb-4">
-                Can't scan? Enter the barcode manually:
+                Can&apos;t scan? Enter the barcode manually:
               </p>
               <form onSubmit={handleManualSubmit} className="flex gap-2">
                 <input
