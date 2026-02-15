@@ -18,9 +18,10 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
     readerRef.current = new BrowserMultiFormatReader();
 
     return () => {
-      // Cleanup on unmount
-      if (readerRef.current) {
-        readerRef.current.reset();
+      // Cleanup on unmount - stop any active streams
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
@@ -34,7 +35,7 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
 
       // Get available video input devices
       const videoInputDevices =
-        await readerRef.current.listVideoInputDevices();
+        await BrowserMultiFormatReader.listVideoInputDevices();
 
       // Find the back camera (environment-facing)
       let selectedDeviceId = videoInputDevices[0]?.deviceId;
@@ -63,8 +64,10 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
           if (result) {
             // Successfully scanned!
             const barcode = result.getText();
-            if (readerRef.current) {
-              readerRef.current.reset();
+            // Stop the video stream
+            if (videoRef.current && videoRef.current.srcObject) {
+              const stream = videoRef.current.srcObject as MediaStream;
+              stream.getTracks().forEach((track) => track.stop());
             }
             setIsScanning(false);
             onScan(barcode);
@@ -82,8 +85,11 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
   };
 
   const stopScanning = () => {
-    if (readerRef.current) {
-      readerRef.current.reset();
+    // Stop the video stream
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
     }
     setIsScanning(false);
   };
