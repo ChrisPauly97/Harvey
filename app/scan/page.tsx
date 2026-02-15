@@ -10,7 +10,8 @@ export default function ScanPage() {
   const [manualBarcode, setManualBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState<"fridge" | "pantry">("fridge");
+  const [category, setCategory] = useState<"fridge" | "freezer" | "pantry">("fridge");
+  const [expirationDate, setExpirationDate] = useState("");
 
   const addItem = async (barcode: string) => {
     try {
@@ -22,7 +23,11 @@ export default function ScanPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ barcode, category }),
+        body: JSON.stringify({
+          barcode,
+          category,
+          expirationDate: expirationDate || null,
+        }),
       });
 
       if (!response.ok) {
@@ -85,7 +90,7 @@ export default function ScanPage() {
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
                 Where are you storing this?
               </h2>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => setCategory("fridge")}
                   className={`py-4 px-4 rounded-xl font-semibold transition-all ${
@@ -96,6 +101,17 @@ export default function ScanPage() {
                 >
                   <div className="text-3xl mb-1">🧊</div>
                   <div className="text-sm">Fridge</div>
+                </button>
+                <button
+                  onClick={() => setCategory("freezer")}
+                  className={`py-4 px-4 rounded-xl font-semibold transition-all ${
+                    category === "freezer"
+                      ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md"
+                      : "bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                  }`}
+                >
+                  <div className="text-3xl mb-1">❄️</div>
+                  <div className="text-sm">Freezer</div>
                 </button>
                 <button
                   onClick={() => setCategory("pantry")}
@@ -109,6 +125,23 @@ export default function ScanPage() {
                   <div className="text-sm">Pantry</div>
                 </button>
               </div>
+            </div>
+
+            {/* Expiration Date Input */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-4">
+              <h2 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                📅 Expiration Date (Optional)
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Leave blank if the item doesn&apos;t expire
+              </p>
+              <input
+                type="date"
+                value={expirationDate}
+                onChange={(e) => setExpirationDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
             </div>
 
             {/* Camera Scanner */}

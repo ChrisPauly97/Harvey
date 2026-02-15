@@ -26,19 +26,21 @@ export async function DELETE(
   }
 }
 
-// PATCH /api/items/[id] - Update quantity
+// PATCH /api/items/[id] - Update quantity or other fields
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const id = parseInt(params.id);
-    const { action } = await request.json();
+    const body = await request.json();
+    const { action, usageLevel, expirationDate, brand, tags } = body;
 
     if (isNaN(id)) {
       return NextResponse.json({ error: "Invalid item ID" }, { status: 400 });
     }
 
+    // Handle quantity updates (increment/decrement)
     if (action === "increment") {
       const [updatedItem] = await db
         .update(items)
@@ -69,7 +71,24 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    // Handle field updates
+    const updateData: any = {};
+    if (usageLevel !== undefined) updateData.usageLevel = usageLevel;
+    if (expirationDate !== undefined) updateData.expirationDate = expirationDate ? new Date(expirationDate) : null;
+    if (brand !== undefined) updateData.brand = brand;
+    if (tags !== undefined) updateData.tags = tags;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    const [updatedItem] = await db
+      .update(items)
+      .set(updateData)
+      .where(eq(items.id, id))
+      .returning();
+
+    return NextResponse.json(updatedItem);
   } catch (error) {
     console.error("Error updating item:", error);
     return NextResponse.json(

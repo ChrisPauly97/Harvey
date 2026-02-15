@@ -40,10 +40,12 @@ export default function ItemCard({
               className={`px-2 py-1 rounded-md text-xs font-medium flex-shrink-0 ${
                 item.category === "fridge"
                   ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                  : item.category === "freezer"
+                  ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
                   : "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
               }`}
             >
-              {item.category === "fridge" ? "Fridge" : "Pantry"}
+              {item.category === "fridge" ? "Fridge" : item.category === "freezer" ? "Freezer" : "Pantry"}
             </span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
@@ -56,6 +58,70 @@ export default function ItemCard({
               year: "numeric",
             })}
           </p>
+
+          {/* Expiration Date */}
+          {item.expirationDate && (() => {
+            const expirationTime = new Date(item.expirationDate).getTime();
+            const now = Date.now();
+            const daysUntilExpiry = (expirationTime - now) / (1000 * 60 * 60 * 24);
+
+            return (
+              <div className="flex items-center gap-2 mt-2">
+                <span
+                  className={`text-xs font-medium px-2 py-1 rounded ${
+                    daysUntilExpiry <= 3
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                      : daysUntilExpiry <= 7
+                      ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  Expires: {new Date(item.expirationDate).toLocaleDateString()}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Brand */}
+          {item.brand && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Brand: {item.brand}
+            </p>
+          )}
+
+          {/* Tags */}
+          {item.tags && item.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {item.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-xs rounded"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Usage Level */}
+          {item.usageLevel !== undefined && item.usageLevel !== null && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Fullness
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-500">
+                  {item.usageLevel}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                <div
+                  className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                  style={{ width: `${item.usageLevel}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

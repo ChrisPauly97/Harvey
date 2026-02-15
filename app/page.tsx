@@ -10,7 +10,7 @@ export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "fridge" | "pantry">("all");
+  const [filter, setFilter] = useState<"all" | "fridge" | "freezer" | "pantry">("all");
 
   const fetchItems = async () => {
     try {
@@ -155,6 +155,19 @@ export default function Home() {
             </span>
           </button>
           <button
+            onClick={() => setFilter("freezer")}
+            className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
+              filter === "freezer"
+                ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md"
+                : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+            }`}
+          >
+            ❄️ Freezer{" "}
+            <span className="opacity-70">
+              ({items.filter((i) => i.category === "freezer").length})
+            </span>
+          </button>
+          <button
             onClick={() => setFilter("pantry")}
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "pantry"
@@ -168,6 +181,38 @@ export default function Home() {
             </span>
           </button>
         </div>
+
+        {/* Expiration Alert Banner */}
+        {(() => {
+          const expiringSoonItems = items.filter((item) => {
+            if (!item.expirationDate) return false;
+            const expirationTime = new Date(item.expirationDate).getTime();
+            const now = Date.now();
+            const daysUntilExpiry = (expirationTime - now) / (1000 * 60 * 60 * 24);
+            return daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
+          });
+
+          return (
+            expiringSoonItems.length > 0 && (
+              <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4 mb-6 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">⚠️</span>
+                  <h3 className="font-semibold text-orange-900 dark:text-orange-300">
+                    {expiringSoonItems.length} item{expiringSoonItems.length !== 1 ? "s" : ""} expiring soon
+                  </h3>
+                </div>
+                <ul className="text-sm space-y-1">
+                  {expiringSoonItems.map((item) => (
+                    <li key={item.id} className="text-orange-800 dark:text-orange-400">
+                      {item.name} - expires{" "}
+                      {new Date(item.expirationDate!).toLocaleDateString()}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          );
+        })()}
 
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-4">
@@ -201,10 +246,10 @@ export default function Home() {
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="text-6xl mb-4">
-              {filter === "fridge" ? "🧊" : "🥫"}
+              {filter === "fridge" ? "🧊" : filter === "freezer" ? "❄️" : "🥫"}
             </div>
             <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
-              No items in {filter === "fridge" ? "fridge" : "pantry"}
+              No items in {filter === "fridge" ? "fridge" : filter === "freezer" ? "freezer" : "pantry"}
             </p>
           </div>
         ) : (
@@ -213,7 +258,7 @@ export default function Home() {
               {filteredItems.length}{" "}
               {filteredItems.length === 1 ? "item" : "items"}
               {filter !== "all" &&
-                ` in ${filter === "fridge" ? "fridge" : "pantry"}`}
+                ` in ${filter === "fridge" ? "fridge" : filter === "freezer" ? "freezer" : "pantry"}`}
             </p>
             {filteredItems.map((item) => (
               <ItemCard
