@@ -11,17 +11,20 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isScanningRef = useRef(false);
 
   useEffect(() => {
     return () => {
       // Cleanup on unmount
-      if (scannerRef.current && isScanning) {
+      if (scannerRef.current && isScanningRef.current) {
         scannerRef.current
           .stop()
-          .catch((err) => console.error("Error stopping scanner:", err));
+          .catch(() => {
+            // Ignore errors on cleanup
+          });
       }
     };
-  }, [isScanning]);
+  }, []);
 
   const startScanning = async () => {
     try {
@@ -37,13 +40,17 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
         },
         (decodedText) => {
           // Successfully scanned
+          isScanningRef.current = false;
           scanner
             .stop()
             .then(() => {
               setIsScanning(false);
               onScan(decodedText);
             })
-            .catch((err) => console.error("Error stopping scanner:", err));
+            .catch(() => {
+              setIsScanning(false);
+              onScan(decodedText);
+            });
         },
         (errorMessage) => {
           // Scanning errors (most are just "no barcode found" which is normal)
@@ -51,22 +58,27 @@ export default function BarcodeScanner({ onScan }: BarcodeScannerProps) {
       );
 
       setIsScanning(true);
+      isScanningRef.current = true;
     } catch (err: any) {
       console.error("Error starting scanner:", err);
       setError(
         "Failed to access camera. Please ensure camera permissions are enabled."
       );
       setIsScanning(false);
+      isScanningRef.current = false;
     }
   };
 
   const stopScanning = async () => {
-    if (scannerRef.current && isScanning) {
+    if (scannerRef.current && isScanningRef.current) {
       try {
         await scannerRef.current.stop();
         setIsScanning(false);
+        isScanningRef.current = false;
       } catch (err) {
-        console.error("Error stopping scanner:", err);
+        // Scanner already stopped
+        setIsScanning(false);
+        isScanningRef.current = false;
       }
     }
   };
