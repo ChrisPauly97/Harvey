@@ -1,16 +1,19 @@
 "use client";
 
-import ItemCard from "@/components/ItemCard";
+import ItemCard, { ItemWithChildren } from "@/components/ItemCard";
+import SplitItemModal, { SplitData } from "@/components/SplitItemModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Item } from "@/lib/schema";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function Home() {
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<ItemWithChildren[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "fridge" | "freezer" | "pantry">("all");
+  const [splitModalOpen, setSplitModalOpen] = useState(false);
+  const [itemToSplit, setItemToSplit] = useState<Item | null>(null);
 
   const fetchItems = async () => {
     try {
@@ -49,9 +52,33 @@ export default function Home() {
         method: "DELETE",
       });
 
-      if (!response.ok) throw new Error("Failed to delete item");
+      const result = await response.json();
 
-      setItems(items.filter((item) => item.id !== id));
+      if (response.status === 409 && result.error === "has_children") {
+        // Parent has children - show cascade confirmation
+        const cascadeConfirmed = window.confirm(
+          `This item has ${result.count} split portion${
+            result.count > 1 ? "s" : ""
+          }. Delete all portions too?`
+        );
+
+        if (!cascadeConfirmed) return;
+
+        // Cascade delete
+        const cascadeRes = await fetch(`/api/items/${id}?cascade=true`, {
+          method: "DELETE",
+        });
+
+        if (!cascadeRes.ok) throw new Error("Failed to delete");
+
+        // Remove parent AND children from state
+        setItems((prev) => prev.filter((i) => i.id !== id && i.parentId !== id));
+      } else if (response.ok) {
+        // Normal delete
+        setItems(items.filter((item) => item.id !== id));
+      } else {
+        throw new Error("Failed to delete item");
+      }
     } catch (err) {
       alert("Failed to delete item. Please try again.");
       console.error(err);
@@ -95,6 +122,43 @@ export default function Home() {
     } catch (err) {
       alert("Failed to update quantity. Please try again.");
       console.error(err);
+    }
+  };
+
+  const handleSplit = (item: Item) => {
+    setItemToSplit(item);
+    setSplitModalOpen(true);
+  };
+
+  const handleSplitConfirm = async (data: SplitData) => {
+    if (!itemToSplit) return;
+
+    try {
+      const res = await fetch(`/api/items/${itemToSplit.id}/split`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) throw new Error(result.error || "Failed to split item");
+
+      // Update state: remove parent if deleted, otherwise update it, then add children
+      setItems((prev) => {
+        const filtered = result.deleted
+          ? prev.filter((i) => i.id !== itemToSplit.id)
+          : prev.map((i) =>
+              i.id === itemToSplit.id ? { ...result.parent, childCount: 0 } : i
+            );
+
+        return [...filtered, ...result.children.map((c: Item) => ({ ...c, childCount: 0 }))];
+      });
+
+      setSplitModalOpen(false);
+      setItemToSplit(null);
+    } catch (error) {
+      throw error; // Let modal handle the error display
     }
   };
 
@@ -266,11 +330,25 @@ export default function Home() {
                 item={item}
                 onDelete={handleDelete}
                 onUpdateQuantity={handleUpdateQuantity}
+                onSplit={handleSplit}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Split Item Modal */}
+      {itemToSplit && (
+        <SplitItemModal
+          item={itemToSplit}
+          isOpen={splitModalOpen}
+          onClose={() => {
+            setSplitModalOpen(false);
+            setItemToSplit(null);
+          }}
+          onConfirm={handleSplitConfirm}
+        />
+      )}
     </main>
   );
 }

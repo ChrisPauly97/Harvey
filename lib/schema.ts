@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const items = sqliteTable(
   "items",
@@ -19,12 +19,21 @@ export const items = sqliteTable(
     usageLevel: integer("usage_level").default(100),
     brand: text("brand"),
     tags: text("tags", { mode: "json" }).$type<string[]>().default(sql`'[]'`),
+    // Phase 3: Portion splitting fields
+    parentId: integer("parent_id").references((): any => items.id),
+    portionSize: text("portion_size"),
+    portionUnit: text("portion_unit"),
+    portionAmount: real("portion_amount"),
+    isOriginal: integer("is_original", { mode: "boolean" }).notNull().default(true),
   },
   (table) => ({
-    barcodeCategory: uniqueIndex("items_barcode_category_unique").on(
-      table.barcode,
-      table.category
-    ),
+    // Partial unique index: only applies to original items (parentId IS NULL)
+    // Allows multiple portions from same product to exist
+    barcodeCategory: uniqueIndex("items_barcode_category_unique")
+      .on(table.barcode, table.category)
+      .where(sql`${table.parentId} IS NULL`),
+    // Index for efficient child lookups
+    parentIdIdx: index("items_parent_id_idx").on(table.parentId),
   })
 );
 

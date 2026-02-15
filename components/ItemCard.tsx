@@ -3,16 +3,21 @@
 import { Item } from "@/lib/schema";
 import Image from "next/image";
 
+// Extended type for items with child count
+export type ItemWithChildren = Item & { childCount: number };
+
 interface ItemCardProps {
-  item: Item;
+  item: ItemWithChildren;
   onDelete: (id: number) => void;
   onUpdateQuantity: (id: number, action: "increment" | "decrement") => void;
+  onSplit: (item: Item) => void;
 }
 
 export default function ItemCard({
   item,
   onDelete,
   onUpdateQuantity,
+  onSplit,
 }: ItemCardProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
@@ -58,6 +63,33 @@ export default function ItemCard({
               year: "numeric",
             })}
           </p>
+
+          {/* Portion Info */}
+          {item.portionSize && (
+            <div className="mt-2">
+              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                📦 Portion: {item.portionSize}
+              </span>
+            </div>
+          )}
+
+          {/* Parent Link (for portions) */}
+          {item.parentId && (
+            <div className="mt-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                🔗 Split portion
+              </span>
+            </div>
+          )}
+
+          {/* Child Count (for parents with portions) */}
+          {item.childCount > 0 && (
+            <div className="mt-2">
+              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                👶 {item.childCount} portion{item.childCount > 1 ? "s" : ""} created
+              </span>
+            </div>
+          )}
 
           {/* Expiration Date */}
           {item.expirationDate && (() => {
@@ -125,7 +157,7 @@ export default function ItemCard({
         </div>
       </div>
 
-      {/* Quantity Controls & Remove Button */}
+      {/* Quantity Controls & Action Buttons */}
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-900 rounded-lg p-1">
           <button
@@ -146,12 +178,23 @@ export default function ItemCard({
             +
           </button>
         </div>
-        <button
-          onClick={() => onDelete(item.id)}
-          className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm"
-        >
-          Remove All
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Split Button - only for original items with quantity >= 2 */}
+          {item.quantity >= 2 && !item.parentId && (
+            <button
+              onClick={() => onSplit(item)}
+              className="border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-lg font-medium text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors shadow-sm"
+            >
+              📦 Split
+            </button>
+          )}
+          <button
+            onClick={() => onDelete(item.id)}
+            className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm"
+          >
+            Remove
+          </button>
+        </div>
       </div>
     </div>
   );

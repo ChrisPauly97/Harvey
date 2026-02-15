@@ -3,11 +3,29 @@ import { items } from "@/lib/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
-// GET /api/items - List all items
+// GET /api/items - List all items with child count
 export async function GET() {
   try {
     const allItems = await db
-      .select()
+      .select({
+        id: items.id,
+        barcode: items.barcode,
+        name: items.name,
+        quantity: items.quantity,
+        category: items.category,
+        addedAt: items.addedAt,
+        imageUrl: items.imageUrl,
+        expirationDate: items.expirationDate,
+        usageLevel: items.usageLevel,
+        brand: items.brand,
+        tags: items.tags,
+        parentId: items.parentId,
+        portionSize: items.portionSize,
+        portionUnit: items.portionUnit,
+        portionAmount: items.portionAmount,
+        isOriginal: items.isOriginal,
+        childCount: sql<number>`(SELECT COUNT(*) FROM ${items} AS c WHERE c.parent_id = ${items.id})`.as('childCount'),
+      })
       .from(items)
       .orderBy(desc(items.addedAt));
 
@@ -40,20 +58,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if item already exists in this category
+    // Check if an ORIGINAL item already exists in this category
+    // (portions can have the same barcode+category, but not original items)
     const existingItem = await db
       .select()
       .from(items)
-      .where(and(eq(items.barcode, barcode), eq(items.category, category)));
+      .where(
+        and(
+          eq(items.barcode, barcode),
+          eq(items.category, category),
+          sql`${items.parentId} IS NULL`
+        )
+      );
 
     if (existingItem.length > 0) {
-      // Item exists in this category, increment quantity
+      // Original item exists in this category, increment quantity
       const [updatedItem] = await db
         .update(items)
         .set({ quantity: sql`${items.quantity} + 1` })
-        .where(
-          and(eq(items.barcode, barcode), eq(items.category, category))
-        )
+        .where(eq(items.id, existingItem[0].id))
         .returning();
 
       return NextResponse.json(updatedItem, { status: 200 });

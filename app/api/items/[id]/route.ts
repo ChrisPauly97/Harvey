@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { items } from "@/lib/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 // DELETE /api/items/[id] - Delete item completely
@@ -10,12 +10,40 @@ export async function DELETE(
 ) {
   try {
     const id = parseInt(params.id);
+    const { searchParams } = new URL(request.url);
+    const cascade = searchParams.get("cascade") === "true";
 
     if (isNaN(id)) {
       return NextResponse.json({ error: "Invalid item ID" }, { status: 400 });
     }
 
-    await db.delete(items).where(eq(items.id, id));
+    // Check if item has children
+    const children = await db
+      .select()
+      .from(items)
+      .where(eq(items.parentId, id));
+
+    if (children.length > 0 && !cascade) {
+      // Item has children and cascade not requested - return error for confirmation
+      return NextResponse.json(
+        {
+          error: "has_children",
+          count: children.length,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (cascade && children.length > 0) {
+      // Delete parent AND all children
+      await db
+        .delete(items)
+        .where(or(eq(items.id, id), eq(items.parentId, id)));
+    } else {
+      // Normal delete (no children or child being deleted)
+      await db.delete(items).where(eq(items.id, id));
+    }
+
     return NextResponse.json({ success: true, deleted: true });
   } catch (error) {
     console.error("Error deleting item:", error);
@@ -34,7 +62,7 @@ export async function PATCH(
   try {
     const id = parseInt(params.id);
     const body = await request.json();
-    const { action, usageLevel, expirationDate, brand, tags } = body;
+    const { action, usageLevel, expirationDate, brand, tags, portionSize, portionAmount, portionUnit } = body;
 
     if (isNaN(id)) {
       return NextResponse.json({ error: "Invalid item ID" }, { status: 400 });
@@ -77,6 +105,9 @@ export async function PATCH(
     if (expirationDate !== undefined) updateData.expirationDate = expirationDate ? new Date(expirationDate) : null;
     if (brand !== undefined) updateData.brand = brand;
     if (tags !== undefined) updateData.tags = tags;
+    if (portionSize !== undefined) updateData.portionSize = portionSize;
+    if (portionAmount !== undefined) updateData.portionAmount = portionAmount;
+    if (portionUnit !== undefined) updateData.portionUnit = portionUnit;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
