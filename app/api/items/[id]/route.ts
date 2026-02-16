@@ -13,6 +13,7 @@ export async function DELETE(
     const id = parseInt(params.id);
     const { searchParams } = new URL(request.url);
     const cascade = searchParams.get("cascade") === "true";
+    const reason = searchParams.get("reason") as "finished" | "removed" || "finished";
 
     if (isNaN(id)) {
       return NextResponse.json({ error: "Invalid item ID" }, { status: 400 });
@@ -51,17 +52,24 @@ export async function DELETE(
       await db.delete(items).where(eq(items.id, id));
     }
 
-    // Log deleted events for all deleted items
-    for (const deletedItem of itemsToDelete) {
-      await logItemEvent({
-        itemId: deletedItem.id,
-        barcode: deletedItem.barcode,
-        name: deletedItem.name,
-        category: deletedItem.category,
-        eventType: "deleted",
-        quantityChange: -deletedItem.quantity,
-        metadata: { quantity: deletedItem.quantity },
-      });
+    // Log deleted events ONLY if reason is "finished" (consumed)
+    // Items removed in error should not be recorded in consumption history
+    if (reason === "finished") {
+      for (const deletedItem of itemsToDelete) {
+        await logItemEvent({
+          itemId: deletedItem.id,
+          barcode: deletedItem.barcode,
+          name: deletedItem.name,
+          category: deletedItem.category,
+          eventType: "deleted",
+          quantityChange: -deletedItem.quantity,
+          metadata: {
+            quantity: deletedItem.quantity,
+            reason: "finished",
+            usageLevel: deletedItem.usageLevel,
+          },
+        });
+      }
     }
 
     return NextResponse.json({ success: true, deleted: true });
@@ -82,7 +90,7 @@ export async function PATCH(
   try {
     const id = parseInt(params.id);
     const body = await request.json();
-    const { action, usageLevel, expirationDate, brand, tags, portionSize, portionAmount, portionUnit } = body;
+    const { action, name, category, usageLevel, expirationDate, brand, tags, portionSize, portionAmount, portionUnit } = body;
 
     if (isNaN(id)) {
       return NextResponse.json({ error: "Invalid item ID" }, { status: 400 });
@@ -125,7 +133,7 @@ export async function PATCH(
 
         return NextResponse.json(updatedItem);
       } else {
-        // Log deleted event when quantity reaches 0
+        // Log deleted event when quantity reaches 0 (decrementing to zero is always "finished")
         await logItemEvent({
           itemId: item.id,
           barcode: item.barcode,
@@ -133,7 +141,11 @@ export async function PATCH(
           category: item.category,
           eventType: "deleted",
           quantityChange: -1,
-          metadata: { quantity: item.quantity },
+          metadata: {
+            quantity: item.quantity,
+            reason: "finished",
+            usageLevel: item.usageLevel,
+          },
         });
 
         await db.delete(items).where(eq(items.id, id));
@@ -149,6 +161,8 @@ export async function PATCH(
     }
 
     const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (category !== undefined) updateData.category = category;
     if (usageLevel !== undefined) updateData.usageLevel = usageLevel;
     if (expirationDate !== undefined) updateData.expirationDate = expirationDate ? new Date(expirationDate) : null;
     if (brand !== undefined) updateData.brand = brand;

@@ -6,16 +6,19 @@ import { usePathname } from "next/navigation";
 interface BottomNavProps {
   shoppingListCount?: number;
   recipeCount?: number;
+  booksCount?: number;
 }
 
 export default function BottomNav({
   shoppingListCount = 0,
   recipeCount = 0,
+  booksCount = 0,
 }: BottomNavProps) {
   const pathname = usePathname();
   const isInventory = pathname === "/";
   const isShopping = pathname === "/shopping-list";
   const isRecipes = pathname === "/recipes";
+  const isBooks = pathname === "/books" || pathname.startsWith("/books/");
 
   return (
     <div className="fixed bottom-0 inset-x-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-40 safe-bottom">
@@ -57,6 +60,21 @@ export default function BottomNav({
           {shoppingListCount > 0 && (
             <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
               {shoppingListCount > 99 ? "99+" : shoppingListCount}
+            </span>
+          )}
+        </Link>
+        <Link
+          href="/books"
+          className={`flex-1 py-3 px-4 text-center font-medium transition-colors relative ${
+            isBooks
+              ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white"
+              : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+          }`}
+        >
+          📚 Books
+          {booksCount > 0 && (
+            <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+              {booksCount > 99 ? "99+" : booksCount}
             </span>
           )}
         </Link>

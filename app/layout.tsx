@@ -12,6 +12,7 @@ export default function RootLayout({
 }) {
   const [shoppingListCount, setShoppingListCount] = useState(0);
   const [recipeCount, setRecipeCount] = useState(0);
+  const [booksCount, setBooksCount] = useState(0);
 
   useEffect(() => {
     async function fetchCounts() {
@@ -31,6 +32,14 @@ export default function RootLayout({
           const data = await recipesResponse.json();
           setRecipeCount((data.recipes || []).length);
         }
+
+        // Fetch books count
+        const booksResponse = await fetch("/api/books");
+        if (booksResponse.ok) {
+          const data = await booksResponse.json();
+          const totalBooks = data.reduce((sum: number, book: any) => sum + book.quantity, 0);
+          setBooksCount(totalBooks);
+        }
       } catch (error) {
         console.error("Failed to fetch counts:", error);
       }
@@ -46,7 +55,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body>
         {children}
-        <BottomNav shoppingListCount={shoppingListCount} recipeCount={recipeCount} />
+        <BottomNav shoppingListCount={shoppingListCount} recipeCount={recipeCount} booksCount={booksCount} />
       </body>
     </html>
   );

@@ -1,7 +1,9 @@
 "use client";
 
 import ItemCard, { ItemWithChildren } from "@/components/ItemCard";
+import ItemListView from "@/components/ItemListView";
 import SplitItemModal, { SplitData } from "@/components/SplitItemModal";
+import EditItemModal from "@/components/EditItemModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Item } from "@/lib/schema";
 import Link from "next/link";
@@ -12,8 +14,12 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "fridge" | "freezer" | "pantry">("all");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [itemToSplit, setItemToSplit] = useState<Item | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
 
   const fetchItems = async () => {
     try {
@@ -35,20 +41,22 @@ export default function Home() {
     fetchItems();
   }, []);
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: number, reason: "finished" | "removed") => {
     const item = items.find((i) => i.id === id);
     if (!item) return;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to remove all ${item.quantity} ${
-        item.quantity === 1 ? "item" : "items"
-      } of "${item.name}"?`
-    );
+    const actionText = reason === "finished" ? "mark as finished" : "remove";
+    const confirmText =
+      reason === "finished"
+        ? `Mark all ${item.quantity} ${item.quantity === 1 ? "item" : "items"} of "${item.name}" as finished? This will be recorded in your consumption history.`
+        : `Remove all ${item.quantity} ${item.quantity === 1 ? "item" : "items"} of "${item.name}"? This will NOT be recorded in consumption history (use Finished if you consumed the item).`;
+
+    const confirmed = window.confirm(confirmText);
 
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/items/${id}`, {
+      const response = await fetch(`/api/items/${id}?reason=${reason}`, {
         method: "DELETE",
       });
 
@@ -59,13 +67,13 @@ export default function Home() {
         const cascadeConfirmed = window.confirm(
           `This item has ${result.count} split portion${
             result.count > 1 ? "s" : ""
-          }. Delete all portions too?`
+          }. ${actionText === "mark as finished" ? "Mark" : "Delete"} all portions too?`
         );
 
         if (!cascadeConfirmed) return;
 
         // Cascade delete
-        const cascadeRes = await fetch(`/api/items/${id}?cascade=true`, {
+        const cascadeRes = await fetch(`/api/items/${id}?cascade=true&reason=${reason}`, {
           method: "DELETE",
         });
 
@@ -80,7 +88,7 @@ export default function Home() {
         throw new Error("Failed to delete item");
       }
     } catch (err) {
-      alert("Failed to delete item. Please try again.");
+      alert(`Failed to ${actionText}. Please try again.`);
       console.error(err);
     }
   };
@@ -162,8 +170,44 @@ export default function Home() {
     }
   };
 
-  const filteredItems =
-    filter === "all" ? items : items.filter((item) => item.category === filter);
+  const handleEdit = (item: Item) => {
+    setItemToEdit(item);
+    setEditModalOpen(true);
+  };
+
+  const handleEditSave = async (id: number, updates: Partial<Item>) => {
+    try {
+      const response = await fetch(`/api/items/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) throw new Error("Failed to update item");
+
+      const updatedItem = await response.json();
+      setItems((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updatedItem } : item))
+      );
+    } catch (err) {
+      throw new Error("Failed to save changes. Please try again.");
+    }
+  };
+
+  // Extract unique tags from all items
+  const allTags = Array.from(
+    new Set(items.flatMap((item) => item.tags || []))
+  ).sort();
+
+  const filteredItems = items.filter((item) => {
+    // Category filter
+    if (filter !== "all" && item.category !== filter) return false;
+    // Tag filter
+    if (tagFilter && (!item.tags || !item.tags.includes(tagFilter))) return false;
+    return true;
+  });
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 pb-20">
@@ -193,8 +237,61 @@ export default function Home() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6">
-        {/* Filter Buttons */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        {/* View Mode Toggle */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Inventory
+          </h2>
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setViewMode("card")}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                viewMode === "card"
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                viewMode === "list"
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Category Filter Buttons */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
           <button
             onClick={() => setFilter("all")}
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
@@ -245,6 +342,40 @@ export default function Home() {
             </span>
           </button>
         </div>
+
+        {/* Tag Filter Buttons */}
+        {allTags.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Filter by tag:
+              </span>
+              {tagFilter && (
+                <button
+                  onClick={() => setTagFilter(null)}
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
+                >
+                  Clear filter
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setTagFilter(tag === tagFilter ? null : tag)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex-shrink-0 ${
+                    tagFilter === tag
+                      ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-md"
+                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Expiration Alert Banner */}
         {(() => {
@@ -323,16 +454,34 @@ export default function Home() {
               {filteredItems.length === 1 ? "item" : "items"}
               {filter !== "all" &&
                 ` in ${filter === "fridge" ? "fridge" : filter === "freezer" ? "freezer" : "pantry"}`}
+              {tagFilter && ` with tag "${tagFilter}"`}
             </p>
-            {filteredItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onDelete={handleDelete}
-                onUpdateQuantity={handleUpdateQuantity}
-                onSplit={handleSplit}
-              />
-            ))}
+            {viewMode === "card" ? (
+              <>
+                {filteredItems.map((item) => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    onDelete={handleDelete}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onSplit={handleSplit}
+                    onEdit={handleEdit}
+                  />
+                ))}
+              </>
+            ) : (
+              <>
+                {filteredItems.map((item) => (
+                  <ItemListView
+                    key={item.id}
+                    item={item}
+                    onDelete={handleDelete}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onEdit={handleEdit}
+                  />
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -347,6 +496,19 @@ export default function Home() {
             setItemToSplit(null);
           }}
           onConfirm={handleSplitConfirm}
+        />
+      )}
+
+      {/* Edit Item Modal */}
+      {itemToEdit && (
+        <EditItemModal
+          item={itemToEdit}
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setItemToEdit(null);
+          }}
+          onSave={handleEditSave}
         />
       )}
     </main>

@@ -140,6 +140,29 @@ export const recipes = sqliteTable(
 export type Recipe = typeof recipes.$inferSelect;
 export type NewRecipe = typeof recipes.$inferInsert;
 
+// Books table for book tracking
+export const books = sqliteTable("books", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  isbn: text("isbn").notNull().unique(),
+  title: text("title").notNull(),
+  authors: text("authors", { mode: "json" })
+    .$type<string[]>()
+    .default(sql`'[]'`),
+  publisher: text("publisher"),
+  publishDate: text("publish_date"),
+  pageCount: integer("page_count"),
+  coverUrl: text("cover_url"),
+  description: text("description"),
+  language: text("language"),
+  quantity: integer("quantity").notNull().default(1),
+  addedAt: integer("added_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export type Book = typeof books.$inferSelect;
+export type NewBook = typeof books.$inferInsert;
+
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 export type ItemEvent = typeof itemEvents.$inferSelect;

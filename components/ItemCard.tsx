@@ -9,9 +9,10 @@ export type ItemWithChildren = Item & { childCount: number };
 
 interface ItemCardProps {
   item: ItemWithChildren;
-  onDelete: (id: number) => void;
+  onDelete: (id: number, reason: "finished" | "removed") => void;
   onUpdateQuantity: (id: number, action: "increment" | "decrement") => void;
   onSplit: (item: Item) => void;
+  onEdit: (item: Item) => void;
 }
 
 export default function ItemCard({
@@ -19,6 +20,7 @@ export default function ItemCard({
   onDelete,
   onUpdateQuantity,
   onSplit,
+  onEdit,
 }: ItemCardProps) {
   const [isEditingQuantity, setIsEditingQuantity] = useState(false);
   const [editQuantity, setEditQuantity] = useState(item.quantity.toString());
@@ -256,7 +258,14 @@ export default function ItemCard({
             +
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Edit Button */}
+          <button
+            onClick={() => onEdit(item)}
+            className="border-2 border-blue-500 text-blue-600 dark:text-blue-400 px-3 py-2 rounded-lg font-medium text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors shadow-sm"
+          >
+            ✏️ Edit
+          </button>
           {/* Split Button - only for original items with quantity >= 2 */}
           {item.quantity >= 2 && !item.parentId && (
             <button
@@ -267,10 +276,16 @@ export default function ItemCard({
             </button>
           )}
           <button
-            onClick={() => onDelete(item.id)}
+            onClick={() => onDelete(item.id, "finished")}
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-sm"
+          >
+            ✓ Finished
+          </button>
+          <button
+            onClick={() => onDelete(item.id, "removed")}
             className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm"
           >
-            Remove
+            🗑️ Remove
           </button>
         </div>
       </div>
