@@ -16,6 +16,7 @@ export default function Home() {
   const [filter, setFilter] = useState<"all" | "fridge" | "freezer" | "pantry">("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const [sortBy, setSortBy] = useState<"default" | "expiryDate" | "addedDate" | "alphabetical">("default");
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [itemToSplit, setItemToSplit] = useState<Item | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -209,6 +210,29 @@ export default function Home() {
     return true;
   });
 
+  // Sort filtered items
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    switch (sortBy) {
+      case "expiryDate":
+        // Items without expiry date go last
+        if (!a.expirationDate && !b.expirationDate) return 0;
+        if (!a.expirationDate) return 1;
+        if (!b.expirationDate) return -1;
+        return new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime();
+
+      case "addedDate":
+        // Newest first
+        return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+
+      case "alphabetical":
+        return a.name.localeCompare(b.name);
+
+      default:
+        // Default: sort by ID (newest first)
+        return b.id - a.id;
+    }
+  });
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 pb-20">
       {/* Header */}
@@ -377,6 +401,25 @@ export default function Home() {
           </div>
         )}
 
+        {/* Sort Options */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Sort by:
+            </span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400"
+            >
+              <option value="default">Recently Added</option>
+              <option value="expiryDate">Expiry Date (Soonest First)</option>
+              <option value="addedDate">Added Date (Newest First)</option>
+              <option value="alphabetical">Name (A-Z)</option>
+            </select>
+          </div>
+        </div>
+
         {/* Expiration Alert Banner */}
         {(() => {
           const expiringSoonItems = items.filter((item) => {
@@ -438,7 +481,7 @@ export default function Home() {
               Scan Your First Item
             </Link>
           </div>
-        ) : filteredItems.length === 0 ? (
+        ) : sortedItems.length === 0 ? (
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="text-6xl mb-4">
               {filter === "fridge" ? "🧊" : filter === "freezer" ? "❄️" : "🥫"}
@@ -450,15 +493,15 @@ export default function Home() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium px-1">
-              {filteredItems.length}{" "}
-              {filteredItems.length === 1 ? "item" : "items"}
+              {sortedItems.length}{" "}
+              {sortedItems.length === 1 ? "item" : "items"}
               {filter !== "all" &&
                 ` in ${filter === "fridge" ? "fridge" : filter === "freezer" ? "freezer" : "pantry"}`}
               {tagFilter && ` with tag "${tagFilter}"`}
             </p>
             {viewMode === "card" ? (
               <>
-                {filteredItems.map((item) => (
+                {sortedItems.map((item) => (
                   <ItemCard
                     key={item.id}
                     item={item}
@@ -471,7 +514,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                {filteredItems.map((item) => (
+                {sortedItems.map((item) => (
                   <ItemListView
                     key={item.id}
                     item={item}

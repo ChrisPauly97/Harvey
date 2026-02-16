@@ -155,6 +155,7 @@ export const books = sqliteTable("books", {
   description: text("description"),
   language: text("language"),
   quantity: integer("quantity").notNull().default(1),
+  spicinessRating: integer("spiciness_rating"), // 0-5 rating for spicy books
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

@@ -1,6 +1,7 @@
 "use client";
 
 import BookCard from "@/components/BookCard";
+import EditBookModal from "@/components/EditBookModal";
 import { Book } from "@/lib/schema";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -9,6 +10,8 @@ export default function BooksPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
 
   useEffect(() => {
     fetchBooks();
@@ -33,6 +36,34 @@ export default function BooksPage() {
 
   const handleDelete = (id: number) => {
     setBooks((prev) => prev.filter((book) => book.id !== id));
+  };
+
+  const handleEdit = (book: Book) => {
+    setBookToEdit(book);
+    setEditModalOpen(true);
+  };
+
+  const handleEditSave = async (id: number, updates: Partial<Book>) => {
+    try {
+      const response = await fetch(`/api/books/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) throw new Error("Failed to update book");
+
+      const updatedBook = await response.json();
+      setBooks((prev) =>
+        prev.map((book) => (book.id === id ? { ...book, ...updatedBook } : book))
+      );
+      setEditModalOpen(false);
+      setBookToEdit(null);
+    } catch (err) {
+      throw new Error("Failed to save changes. Please try again.");
+    }
   };
 
   // Filter books based on search query
@@ -137,12 +168,30 @@ export default function BooksPage() {
             {/* Books Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredBooks.map((book) => (
-                <BookCard key={book.id} book={book} onDelete={handleDelete} />
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                />
               ))}
             </div>
           </>
         )}
       </div>
+
+      {/* Edit Book Modal */}
+      {bookToEdit && (
+        <EditBookModal
+          book={bookToEdit}
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setBookToEdit(null);
+          }}
+          onSave={handleEditSave}
+        />
+      )}
     </main>
   );
 }

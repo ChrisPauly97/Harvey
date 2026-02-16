@@ -6,9 +6,10 @@ import { useState } from "react";
 interface BookCardProps {
   book: Book;
   onDelete: (id: number) => void;
+  onEdit: (book: Book) => void;
 }
 
-export default function BookCard({ book, onDelete }: BookCardProps) {
+export default function BookCard({ book, onDelete, onEdit }: BookCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
@@ -95,19 +96,32 @@ export default function BookCard({ book, onDelete }: BookCardProps) {
               <span className="font-semibold">Pages:</span> {book.pageCount}
             </p>
           )}
+          {book.spicinessRating !== null && book.spicinessRating !== undefined && book.spicinessRating > 0 && (
+            <p>
+              <span className="font-semibold">Spiciness:</span> {"🌶️".repeat(book.spicinessRating)}
+            </p>
+          )}
           <p className="text-gray-400 dark:text-gray-600">
             ISBN: {book.isbn}
           </p>
         </div>
 
-        {/* Delete Button */}
-        <button
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isDeleting ? "Removing..." : book.quantity > 1 ? "Remove One" : "Remove"}
-        </button>
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          <button
+            onClick={() => onEdit(book)}
+            className="w-full bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            ✏️ Edit
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? "Removing..." : book.quantity > 1 ? "Remove One" : "Remove"}
+          </button>
+        </div>
       </div>
     </div>
   );
