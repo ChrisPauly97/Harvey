@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface KeyboardBarcodeScannerProps {
   onScan: (barcode: string) => void;
@@ -21,7 +21,7 @@ export default function KeyboardBarcodeScanner({
   // Minimum barcode length to consider valid
   const MIN_BARCODE_LENGTH = 3;
 
-  const completeBarcode = () => {
+  const completeBarcode = useCallback(() => {
     const barcode = barcodeBufferRef.current.trim();
 
     // Clear the buffer and input
@@ -40,7 +40,12 @@ export default function KeyboardBarcodeScanner({
     if (barcode.length >= MIN_BARCODE_LENGTH) {
       onScan(barcode);
     }
-  };
+
+    // Keep focus on input for continuous scanning
+    if (inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [onScan]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

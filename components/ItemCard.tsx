@@ -2,6 +2,7 @@
 
 import { Item } from "@/lib/schema";
 import Image from "next/image";
+import { useRef, useState } from "react";
 
 // Extended type for items with child count
 export type ItemWithChildren = Item & { childCount: number };
@@ -19,6 +20,63 @@ export default function ItemCard({
   onUpdateQuantity,
   onSplit,
 }: ItemCardProps) {
+  const [isEditingQuantity, setIsEditingQuantity] = useState(false);
+  const [editQuantity, setEditQuantity] = useState(item.quantity.toString());
+  const [isUpdating, setIsUpdating] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleQuantityClick = () => {
+    setIsEditingQuantity(true);
+    setEditQuantity(item.quantity.toString());
+    // Focus input after state update
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const saveQuantity = async () => {
+    const newQuantity = parseInt(editQuantity, 10);
+
+    // Validate
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      setIsEditingQuantity(false);
+      return;
+    }
+
+    if (newQuantity === item.quantity) {
+      setIsEditingQuantity(false);
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const response = await fetch(`/api/items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: newQuantity }),
+      });
+
+      if (response.ok) {
+        // Refresh the page to see updated quantity
+        window.location.reload();
+      } else {
+        setEditQuantity(item.quantity.toString());
+      }
+    } catch (error) {
+      console.error("Failed to update quantity:", error);
+      setEditQuantity(item.quantity.toString());
+    } finally {
+      setIsUpdating(false);
+      setIsEditingQuantity(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      saveQuantity();
+    } else if (e.key === "Escape") {
+      setIsEditingQuantity(false);
+    }
+  };
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
       <div className="flex gap-4">
@@ -162,17 +220,37 @@ export default function ItemCard({
         <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-900 rounded-lg p-1">
           <button
             onClick={() => onUpdateQuantity(item.id, "decrement")}
-            className="w-9 h-9 flex items-center justify-center rounded-md bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-500 font-bold text-lg shadow-sm transition-colors"
+            disabled={isEditingQuantity}
+            className="w-9 h-9 flex items-center justify-center rounded-md bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-500 font-bold text-lg shadow-sm transition-colors disabled:opacity-50"
             aria-label="Decrease quantity"
           >
             −
           </button>
-          <span className="font-semibold text-lg px-4 min-w-[3rem] text-center text-gray-900 dark:text-gray-100">
-            {item.quantity}
-          </span>
+          {isEditingQuantity ? (
+            <input
+              ref={inputRef}
+              type="number"
+              min="0"
+              value={editQuantity}
+              onChange={(e) => setEditQuantity(e.target.value)}
+              onBlur={saveQuantity}
+              onKeyDown={handleKeyDown}
+              disabled={isUpdating}
+              className="font-semibold text-lg px-2 w-16 text-center bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded border-2 border-emerald-500 focus:outline-none"
+            />
+          ) : (
+            <span
+              onClick={handleQuantityClick}
+              className="font-semibold text-lg px-4 min-w-[3rem] text-center text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              title="Click to edit quantity"
+            >
+              {item.quantity}
+            </span>
+          )}
           <button
             onClick={() => onUpdateQuantity(item.id, "increment")}
-            className="w-9 h-9 flex items-center justify-center rounded-md bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-500 font-bold text-lg shadow-sm transition-colors"
+            disabled={isEditingQuantity}
+            className="w-9 h-9 flex items-center justify-center rounded-md bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-500 font-bold text-lg shadow-sm transition-colors disabled:opacity-50"
             aria-label="Increase quantity"
           >
             +
