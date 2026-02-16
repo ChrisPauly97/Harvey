@@ -117,28 +117,28 @@ export default function EditBookModal({
 
           {/* Spiciness Rating */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Spiciness Rating: {spicinessEmojis[formData.spicinessRating] || "None"}
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+              Spiciness Rating
             </label>
-            <input
-              type="range"
-              min="0"
-              max="5"
-              value={formData.spicinessRating}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  spicinessRating: parseInt(e.target.value),
-                })
-              }
-              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
-            />
-            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-              <span>0 (None)</span>
-              <span>5 (Very Spicy)</span>
-            </div>
-            <div className="text-center text-3xl mt-2">
-              {spicinessEmojis[formData.spicinessRating] || "😇"}
+            <div className="flex justify-center gap-3">
+              {[1, 2, 3, 4, 5].map((rating) => (
+                <button
+                  key={rating}
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      spicinessRating: formData.spicinessRating === rating ? 0 : rating,
+                    })
+                  }
+                  className="text-4xl transition-all transform hover:scale-110 active:scale-95"
+                  style={{
+                    opacity: formData.spicinessRating >= rating ? 1 : 0.3,
+                  }}
+                >
+                  🌶️
+                </button>
+              ))}
             </div>
           </div>
 
