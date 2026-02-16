@@ -69,12 +69,25 @@ export default function ScanPage() {
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent page reload
+    e.stopPropagation(); // Stop event bubbling
     if (manualBarcode.trim()) {
       addItem(manualBarcode.trim());
       setManualBarcode("");
     }
   };
+
+  // Prevent any accidental form submissions from causing page reload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (scannedItems.length > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [scannedItems.length]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
@@ -104,12 +117,23 @@ export default function ScanPage() {
           </div>
         )}
 
-        {/* Scanned Items Counter */}
-        {scannedItems.length > 0 && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 px-4 py-3 rounded-xl mb-4">
-            <p className="font-semibold">📦 Items Scanned: {scannedItems.length}</p>
+        {/* Continuous Scanning Active Banner */}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-3 rounded-xl mb-4 shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🔄</span>
+              <div>
+                <p className="font-semibold">Continuous Scanning Active</p>
+                <p className="text-xs opacity-90">Just scan items - no clicking needed!</p>
+              </div>
+            </div>
+            {scannedItems.length > 0 && (
+              <div className="bg-white/20 px-3 py-1 rounded-full">
+                <p className="font-bold">{scannedItems.length}</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Main Content */}
         {loading ? (

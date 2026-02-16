@@ -9,11 +9,18 @@ interface KeyboardBarcodeScannerProps {
 export default function KeyboardBarcodeScanner({
   onScan,
 }: KeyboardBarcodeScannerProps) {
-  const [isActive, setIsActive] = useState(false);
+  const [isActive, setIsActive] = useState(true); // Start active by default
   const [lastScanTime, setLastScanTime] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const barcodeBufferRef = useRef<string>("");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-focus on mount for immediate scanning
+  useEffect(() => {
+    if (isActive && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isActive]);
 
   // Barcode scanning typically completes within 50-100ms
   // If no input for 100ms, consider the barcode complete
@@ -113,12 +120,12 @@ export default function KeyboardBarcodeScanner({
   return (
     <div className="space-y-4">
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 px-4 py-3 rounded-xl text-sm">
-        <p className="font-semibold mb-2">📡 Keyboard Scanner Setup</p>
+        <p className="font-semibold mb-2">🔄 Continuous Scanning Mode</p>
         <ol className="list-decimal list-inside space-y-1 text-xs">
           <li>Configure your Netum C750 to Keyboard Emulation mode</li>
-          <li>Click &quot;Start Scanning&quot; below to activate listener</li>
-          <li>Scanner will send barcodes as keyboard input</li>
-          <li>Barcode automatically detected and processed</li>
+          <li>Scanner is ready - just scan items continuously</li>
+          <li>Each scan automatically adds to your inventory</li>
+          <li>No need to click between scans</li>
         </ol>
       </div>
 
@@ -164,11 +171,11 @@ export default function KeyboardBarcodeScanner({
         onClick={toggleScanning}
         className={`w-full px-6 py-4 rounded-xl font-semibold shadow-md transition-all active:scale-95 text-white ${
           isActive
-            ? "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
+            ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
             : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
         }`}
       >
-        {isActive ? "⏹️ Stop Scanning" : "▶️ Start Scanning"}
+        {isActive ? "⏸️ Pause Continuous Scanning" : "▶️ Resume Continuous Scanning"}
       </button>
 
       {/* Scanner configuration instructions */}
