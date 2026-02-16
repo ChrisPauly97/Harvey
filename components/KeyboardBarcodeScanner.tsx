@@ -21,6 +21,27 @@ export default function KeyboardBarcodeScanner({
   // Minimum barcode length to consider valid
   const MIN_BARCODE_LENGTH = 3;
 
+  const completeBarcode = () => {
+    const barcode = barcodeBufferRef.current.trim();
+
+    // Clear the buffer and input
+    barcodeBufferRef.current = "";
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+
+    // Clear timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    // Only process if barcode is long enough
+    if (barcode.length >= MIN_BARCODE_LENGTH) {
+      onScan(barcode);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only process if we're active
@@ -74,28 +95,7 @@ export default function KeyboardBarcodeScanner({
         window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [isActive]);
-
-  const completeBarcode = () => {
-    const barcode = barcodeBufferRef.current.trim();
-
-    // Clear the buffer and input
-    barcodeBufferRef.current = "";
-    if (inputRef.current) {
-      inputRef.current.value = "";
-    }
-
-    // Clear timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    // Only process if barcode is long enough
-    if (barcode.length >= MIN_BARCODE_LENGTH) {
-      onScan(barcode);
-    }
-  };
+  }, [isActive, completeBarcode]);
 
   const toggleScanning = () => {
     setIsActive(!isActive);

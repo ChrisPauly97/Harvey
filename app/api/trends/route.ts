@@ -1,9 +1,9 @@
 import { analyzeConsumption } from "@/lib/analytics";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = request.nextUrl;
     const barcode = searchParams.get("barcode");
     const category = searchParams.get("category") || "fridge";
     const days = parseInt(searchParams.get("days") || "30", 10);
