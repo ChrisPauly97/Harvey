@@ -3,20 +3,37 @@
 import KeyboardBarcodeScanner from "@/components/KeyboardBarcodeScanner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+interface ScannedItem {
+  barcode: string;
+  name?: string;
+  timestamp: number;
+}
 
 export default function ScanPage() {
   const router = useRouter();
   const [manualBarcode, setManualBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [category, setCategory] = useState<"fridge" | "freezer" | "pantry">("fridge");
   const [expirationDate, setExpirationDate] = useState("");
+  const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+
+  // Auto-hide success message after 3 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   const addItem = async (barcode: string) => {
     try {
       setLoading(true);
       setError(null);
+      setSuccess(null);
 
       const response = await fetch("/api/items", {
         method: "POST",
@@ -34,7 +51,16 @@ export default function ScanPage() {
         throw new Error("Failed to add item");
       }
 
-      router.push("/");
+      const data = await response.json();
+
+      // Add to scanned items list for continuous scanning
+      setScannedItems((prev) => [
+        { barcode, name: data.name, timestamp: Date.now() },
+        ...prev,
+      ]);
+
+      setSuccess(`✅ Added: ${data.name || barcode}`);
+      setLoading(false);
     } catch (err) {
       console.error("Error adding item:", err);
       setError("Failed to add item. Please try again.");
@@ -46,6 +72,7 @@ export default function ScanPage() {
     e.preventDefault();
     if (manualBarcode.trim()) {
       addItem(manualBarcode.trim());
+      setManualBarcode("");
     }
   };
 
@@ -69,7 +96,22 @@ export default function ScanPage() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-3xl mx-auto px-4 py-6 pb-20">
+        {/* Success Toast */}
+        {success && (
+          <div className="fixed top-20 left-4 right-4 max-w-sm mx-auto bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl shadow-lg animate-pulse z-50">
+            {success}
+          </div>
+        )}
+
+        {/* Scanned Items Counter */}
+        {scannedItems.length > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 px-4 py-3 rounded-xl mb-4">
+            <p className="font-semibold">📦 Items Scanned: {scannedItems.length}</p>
+          </div>
+        )}
+
+        {/* Main Content */}
         {loading ? (
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 dark:border-gray-700 border-t-emerald-500"></div>
@@ -153,7 +195,7 @@ export default function ScanPage() {
             </div>
 
             {/* Manual Entry */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-4">
               <h2 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
                 ⌨️ Manual Entry
               </h2>
@@ -177,6 +219,47 @@ export default function ScanPage() {
                 </button>
               </form>
             </div>
+
+            {/* Recently Scanned Items */}
+            {scannedItems.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-4">
+                <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+                  📋 Recently Scanned
+                </h2>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {scannedItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                          {item.name || item.barcode}
+                        </p>
+                        {item.name && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.barcode}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(item.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Finish Button */}
+            {scannedItems.length > 0 && (
+              <button
+                onClick={() => router.push("/")}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+              >
+                ✅ Done - View Inventory
+              </button>
+            )}
           </>
         )}
       </div>
