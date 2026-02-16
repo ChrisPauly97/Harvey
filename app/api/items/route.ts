@@ -3,10 +3,11 @@ import { items } from "@/lib/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { logItemEvent } from "@/lib/events";
+import { unstable_cache, revalidateTag } from "next/cache";
 
-// GET /api/items - List all items with child count
-export async function GET() {
-  try {
+// Cached function to fetch all items
+const getCachedItems = unstable_cache(
+  async () => {
     const allItems = await db
       .select({
         id: items.id,
@@ -30,7 +31,25 @@ export async function GET() {
       .from(items)
       .orderBy(desc(items.addedAt));
 
-    return NextResponse.json(allItems);
+    return allItems;
+  },
+  ['items-list'],
+  {
+    revalidate: 30, // Cache for 30 seconds
+    tags: ['items'],
+  }
+);
+
+// GET /api/items - List all items with child count
+export async function GET() {
+  try {
+    const allItems = await getCachedItems();
+
+    return NextResponse.json(allItems, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      },
+    });
   } catch (error) {
     console.error("Error fetching items:", error);
     return NextResponse.json(
@@ -91,6 +110,9 @@ export async function POST(request: Request) {
         metadata: { newQuantity: updatedItem.quantity },
       });
 
+      // Invalidate cache
+      revalidateTag('items');
+
       return NextResponse.json(updatedItem, { status: 200 });
     }
 
@@ -148,6 +170,9 @@ export async function POST(request: Request) {
         expirationDate: parsedExpirationDate?.toISOString(),
       },
     });
+
+    // Invalidate cache
+    revalidateTag('items');
 
     return NextResponse.json(newItem, { status: 201 });
   } catch (error) {

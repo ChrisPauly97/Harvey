@@ -7,12 +7,13 @@ import EditItemModal from "@/components/EditItemModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Item } from "@/lib/schema";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+
+// SWR fetcher function
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function Home() {
-  const [items, setItems] = useState<ItemWithChildren[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "fridge" | "freezer" | "pantry">("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
@@ -22,25 +23,18 @@ export default function Home() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
 
-  const fetchItems = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/items");
-      if (!response.ok) throw new Error("Failed to fetch items");
-      const data = await response.json();
-      setItems(data);
-      setError(null);
-    } catch (err) {
-      setError("Failed to load items. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+  // Use SWR for data fetching with automatic caching and revalidation
+  const { data: items = [], error, isLoading, mutate } = useSWR<ItemWithChildren[]>(
+    "/api/items",
+    fetcher,
+    {
+      revalidateOnFocus: true, // Revalidate when window regains focus
+      revalidateOnReconnect: true, // Revalidate when browser regains network connection
+      dedupingInterval: 2000, // Dedupe requests within 2 seconds
     }
-  };
+  );
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
+  const loading = isLoading;
 
   const handleDelete = async (id: number, reason: "finished" | "removed") => {
     const item = items.find((i) => i.id === id);
@@ -79,15 +73,12 @@ export default function Home() {
         });
 
         if (!cascadeRes.ok) throw new Error("Failed to delete");
-
-        // Remove parent AND children from state
-        setItems((prev) => prev.filter((i) => i.id !== id && i.parentId !== id));
-      } else if (response.ok) {
-        // Normal delete
-        setItems(items.filter((item) => item.id !== id));
-      } else {
+      } else if (!response.ok) {
         throw new Error("Failed to delete item");
       }
+
+      // Revalidate SWR cache
+      mutate();
     } catch (err) {
       alert(`Failed to ${actionText}. Please try again.`);
       console.error(err);
@@ -119,15 +110,8 @@ export default function Home() {
 
       if (!response.ok) throw new Error("Failed to update quantity");
 
-      const data = await response.json();
-
-      if (data.deleted) {
-        setItems(items.filter((item) => item.id !== id));
-      } else {
-        setItems(
-          items.map((item) => (item.id === id ? { ...item, ...data } : item))
-        );
-      }
+      // Revalidate SWR cache
+      mutate();
     } catch (err) {
       alert("Failed to update quantity. Please try again.");
       console.error(err);
@@ -153,16 +137,8 @@ export default function Home() {
 
       if (!res.ok) throw new Error(result.error || "Failed to split item");
 
-      // Update state: remove parent if deleted, otherwise update it, then add children
-      setItems((prev) => {
-        const filtered = result.deleted
-          ? prev.filter((i) => i.id !== itemToSplit.id)
-          : prev.map((i) =>
-              i.id === itemToSplit.id ? { ...result.parent, childCount: 0 } : i
-            );
-
-        return [...filtered, ...result.children.map((c: Item) => ({ ...c, childCount: 0 }))];
-      });
+      // Revalidate SWR cache
+      mutate();
 
       setSplitModalOpen(false);
       setItemToSplit(null);
@@ -188,10 +164,8 @@ export default function Home() {
 
       if (!response.ok) throw new Error("Failed to update item");
 
-      const updatedItem = await response.json();
-      setItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...updatedItem } : item))
-      );
+      // Revalidate SWR cache
+      mutate();
     } catch (err) {
       throw new Error("Failed to save changes. Please try again.");
     }
@@ -454,7 +428,7 @@ export default function Home() {
 
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-4">
-            {error}
+            Failed to load items. Please try again.
           </div>
         )}
 

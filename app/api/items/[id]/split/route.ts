@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { items } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 
 // POST /api/items/[id]/split - Split item into portions
 export async function POST(
@@ -98,6 +99,9 @@ export async function POST(
         .returning();
       parent = updatedParent;
     }
+
+    // Invalidate cache
+    revalidateTag('items');
 
     return NextResponse.json({
       parent,

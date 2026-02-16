@@ -3,6 +3,7 @@ import { items } from "@/lib/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { logItemEvent } from "@/lib/events";
+import { revalidateTag } from "next/cache";
 
 // DELETE /api/items/[id] - Delete item completely
 export async function DELETE(
@@ -72,6 +73,9 @@ export async function DELETE(
       }
     }
 
+    // Invalidate cache
+    revalidateTag('items');
+
     return NextResponse.json({ success: true, deleted: true });
   } catch (error) {
     console.error("Error deleting item:", error);
@@ -104,6 +108,9 @@ export async function PATCH(
         .where(eq(items.id, id))
         .returning();
 
+      // Invalidate cache
+      revalidateTag('items');
+
       return NextResponse.json(updatedItem);
     } else if (action === "decrement") {
       // Get current item to check quantity
@@ -131,6 +138,9 @@ export async function PATCH(
           metadata: { newQuantity: updatedItem.quantity },
         });
 
+        // Invalidate cache
+        revalidateTag('items');
+
         return NextResponse.json(updatedItem);
       } else {
         // Log deleted event when quantity reaches 0 (decrementing to zero is always "finished")
@@ -149,6 +159,10 @@ export async function PATCH(
         });
 
         await db.delete(items).where(eq(items.id, id));
+
+        // Invalidate cache
+        revalidateTag('items');
+
         return NextResponse.json({ success: true, deleted: true });
       }
     }
@@ -194,6 +208,9 @@ export async function PATCH(
         metadata: { changedFields: Object.keys(updateData) },
       });
     }
+
+    // Invalidate cache
+    revalidateTag('items');
 
     return NextResponse.json(updatedItem);
   } catch (error) {
