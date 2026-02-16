@@ -1,6 +1,6 @@
 "use client";
 
-import BluetoothBarcodeScanner from "@/components/BluetoothBarcodeScanner";
+import KeyboardBarcodeScanner from "@/components/KeyboardBarcodeScanner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -144,12 +144,12 @@ export default function ScanPage() {
               />
             </div>
 
-            {/* Bluetooth Scanner */}
+            {/* Keyboard Scanner */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-4">
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-                📡 Bluetooth Scanner
+                📡 Scanner
               </h2>
-              <BluetoothBarcodeScanner onScan={addItem} />
+              <KeyboardBarcodeScanner onScan={addItem} />
             </div>
 
             {/* Manual Entry */}
