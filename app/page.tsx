@@ -7,7 +7,7 @@ import EditItemModal from "@/components/EditItemModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Item } from "@/lib/schema";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 // SWR fetcher function
@@ -35,6 +35,35 @@ export default function Home() {
   );
 
   const loading = isLoading;
+
+  // Listen for items added from scanner and update cache atomically
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'newItemAdded' && e.newValue) {
+        try {
+          const { item } = JSON.parse(e.newValue);
+          // Atomically add the new item to cache
+          if (items) {
+            const updatedItems = [
+              {
+                ...item,
+                childCount: 0, // New items have no children
+              } as ItemWithChildren,
+              ...items,
+            ];
+            mutate(updatedItems, false);
+          }
+        } catch (error) {
+          console.error('Error adding new item to cache:', error);
+          // Fallback: just revalidate
+          mutate();
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [items, mutate]);
 
   const handleDelete = async (id: number, reason: "finished" | "removed") => {
     const item = items.find((i) => i.id === id);
@@ -77,8 +106,11 @@ export default function Home() {
         throw new Error("Failed to delete item");
       }
 
-      // Revalidate SWR cache to update the UI immediately
-      mutate();
+      // Optimistically remove item from cache
+      if (items) {
+        const updatedItems = items.filter((i) => i.id !== id);
+        await mutate(updatedItems, false);
+      }
     } catch (err) {
       alert(`Failed to ${actionText}. Please try again.`);
       console.error(err);
@@ -110,8 +142,30 @@ export default function Home() {
 
       if (!response.ok) throw new Error("Failed to update quantity");
 
-      // Revalidate SWR cache
-      mutate();
+      const result = await response.json();
+
+      // Optimistically update cache with returned data
+      if (result.success && result.deleted) {
+        // Item was deleted when quantity reached 0
+        if (items) {
+          const updatedItems = items.filter((i) => i.id !== id);
+          await mutate(updatedItems, false);
+        }
+      } else if (result.id) {
+        // Item was updated (quantity changed)
+        if (items) {
+          const updatedItems = items.map((i) =>
+            i.id === id
+              ? {
+                  ...i,
+                  ...result,
+                  childCount: i.childCount,
+                } as ItemWithChildren
+              : i
+          );
+          await mutate(updatedItems, false);
+        }
+      }
     } catch (err) {
       alert("Failed to update quantity. Please try again.");
       console.error(err);
@@ -137,8 +191,38 @@ export default function Home() {
 
       if (!res.ok) throw new Error(result.error || "Failed to split item");
 
-      // Revalidate SWR cache
-      mutate();
+      // Optimistically update cache with split result
+      if (items) {
+        let updatedItems = [...items];
+
+        // If parent was deleted, remove it from cache
+        if (result.deleted) {
+          updatedItems = updatedItems.filter((i) => i.id !== itemToSplit.id);
+        } else if (result.parent) {
+          // Update parent with new quantity and child count
+          updatedItems = updatedItems.map((i) =>
+            i.id === itemToSplit.id
+              ? {
+                  ...i,
+                  ...result.parent,
+                } as ItemWithChildren
+              : i
+          );
+        }
+
+        // Add new children to cache
+        if (result.children && result.children.length > 0) {
+          updatedItems = [
+            ...result.children.map((child: any) => ({
+              ...child,
+              childCount: 0,
+            } as ItemWithChildren)),
+            ...updatedItems,
+          ];
+        }
+
+        await mutate(updatedItems, false);
+      }
 
       setSplitModalOpen(false);
       setItemToSplit(null);
@@ -164,8 +248,23 @@ export default function Home() {
 
       if (!response.ok) throw new Error("Failed to update item");
 
-      // Revalidate SWR cache to update the UI
-      await mutate();
+      const updatedItem = await response.json();
+
+      // Optimistically update SWR cache with the returned data
+      if (items) {
+        const updatedItems = items.map((item) =>
+          item.id === id
+            ? ({
+                ...item,
+                ...updatedItem,
+                childCount: item.childCount, // Preserve childCount
+              } as ItemWithChildren)
+            : item
+        );
+        // Update cache only, don't revalidate immediately to avoid race conditions
+        // SWR will naturally revalidate on focus/interval
+        await mutate(updatedItems, false);
+      }
     } catch (err) {
       throw new Error("Failed to save changes. Please try again.");
     }

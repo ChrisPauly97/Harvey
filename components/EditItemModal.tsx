@@ -22,7 +22,7 @@ export default function EditItemModal({
     expirationDate: item.expirationDate
       ? new Date(item.expirationDate).toISOString().split("T")[0]
       : "",
-    usageLevel: item.usageLevel ?? 100,
+    usageLevel: Number(item.usageLevel ?? 100),
     brand: item.brand ?? "",
     tags: item.tags?.join(", ") ?? "",
   });
@@ -40,7 +40,7 @@ export default function EditItemModal({
       const updates: Partial<Item> = {
         name: formData.name,
         category: formData.category as "fridge" | "freezer" | "pantry",
-        usageLevel: formData.usageLevel,
+        usageLevel: Number(formData.usageLevel),
         brand: formData.brand || null,
         tags: formData.tags
           ? formData.tags.split(",").map((t) => t.trim()).filter(Boolean)

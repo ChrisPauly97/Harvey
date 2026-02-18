@@ -51,16 +51,24 @@ export default function ScanPage() {
         throw new Error("Failed to add item");
       }
 
-      const data = await response.json();
+      const newItem = await response.json();
 
       // Add to scanned items list for continuous scanning
       setScannedItems((prev) => [
-        { barcode, name: data.name, timestamp: Date.now() },
+        { barcode, name: newItem.name, timestamp: Date.now() },
         ...prev,
       ]);
 
-      setSuccess(`✅ Added: ${data.name || barcode}`);
+      setSuccess(`✅ Added: ${newItem.name || barcode}`);
       setLoading(false);
+
+      // Store new item and signal home page to update cache atomically
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('newItemAdded', JSON.stringify({
+          item: newItem,
+          timestamp: Date.now(),
+        }));
+      }
     } catch (err) {
       console.error("Error adding item:", err);
       setError("Failed to add item. Please try again.");

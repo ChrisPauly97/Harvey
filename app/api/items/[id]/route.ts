@@ -177,7 +177,7 @@ export async function PATCH(
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (category !== undefined) updateData.category = category;
-    if (usageLevel !== undefined) updateData.usageLevel = usageLevel;
+    if (usageLevel !== undefined) updateData.usageLevel = Number(usageLevel);
     if (expirationDate !== undefined) updateData.expirationDate = expirationDate ? new Date(expirationDate) : null;
     if (brand !== undefined) updateData.brand = brand;
     if (tags !== undefined) updateData.tags = tags;
