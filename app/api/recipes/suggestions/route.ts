@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { items, recipes } from "@/lib/schema";
 import { matchIngredients, sortByMatchScore } from "@/lib/matching";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +10,11 @@ export const dynamic = "force-dynamic";
  * Get recipe suggestions based on current inventory
  *
  * Query params:
- * - minMatchScore: minimum % ingredients needed (default: 50)
- * - maxMissing: max missing ingredients to show (default: 3)
+ * - minMatchScore: minimum % ingredients needed (default: 30)
+ * - maxMissing: max missing ingredients to show (default: 5)
  * - category: filter by recipe category (optional)
  * - limit: max recipes to return (default: 10)
+ * - vegan: filter to vegan recipes only (default: true)
  */
 export async function GET(request: Request) {
   try {
@@ -21,13 +22,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const minMatchScore = Math.max(
       0,
-      Math.min(100, parseInt(searchParams.get("minMatchScore") || "50", 10))
+      Math.min(100, parseInt(searchParams.get("minMatchScore") || "30", 10))
     );
     const maxMissing = Math.max(
       0,
-      parseInt(searchParams.get("maxMissing") || "3", 10)
+      parseInt(searchParams.get("maxMissing") || "5", 10)
     );
     const categoryFilter = searchParams.get("category") || undefined;
+    const veganOnly = searchParams.get("vegan") !== "false"; // default true
     const limit = Math.max(1, parseInt(searchParams.get("limit") || "10", 10));
 
     // Fetch all inventory items (excluding portions)
@@ -36,13 +38,27 @@ export async function GET(request: Request) {
       .from(items)
       .where(eq(items.isOriginal, true));
 
-    // Fetch recipes, optionally filtered by category
-    const allRecipes = categoryFilter
-      ? await db
-          .select()
-          .from(recipes)
-          .where(eq(recipes.category, categoryFilter))
-      : await db.select().from(recipes);
+    // Fetch recipes with filters
+    let allRecipes: typeof recipes.$inferSelect[] = [];
+
+    if (veganOnly && categoryFilter) {
+      allRecipes = await db
+        .select()
+        .from(recipes)
+        .where(and(eq(recipes.isVegan, true), eq(recipes.category, categoryFilter)));
+    } else if (veganOnly) {
+      allRecipes = await db
+        .select()
+        .from(recipes)
+        .where(eq(recipes.isVegan, true));
+    } else if (categoryFilter) {
+      allRecipes = await db
+        .select()
+        .from(recipes)
+        .where(eq(recipes.category, categoryFilter));
+    } else {
+      allRecipes = await db.select().from(recipes);
+    }
 
     if (allRecipes.length === 0) {
       return NextResponse.json(

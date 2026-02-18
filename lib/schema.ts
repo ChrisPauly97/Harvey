@@ -127,6 +127,7 @@ export const recipes = sqliteTable(
     servings: integer("servings").default(4),
     prepTime: integer("prep_time"),
     cookTime: integer("cook_time"),
+    isVegan: integer("is_vegan", { mode: "boolean" }).notNull().default(false),
     cachedAt: integer("cached_at", { mode: "timestamp" })
       .notNull()
       .default(sql`(unixepoch())`),
@@ -134,6 +135,7 @@ export const recipes = sqliteTable(
   (table) => ({
     sourceIdx: index("recipes_source_idx").on(table.source),
     categoryIdx: index("recipes_category_idx").on(table.category),
+    veganIdx: index("recipes_is_vegan_idx").on(table.isVegan),
   })
 );
 

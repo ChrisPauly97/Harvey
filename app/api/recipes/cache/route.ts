@@ -41,12 +41,21 @@ function parseIngredients(meal: TheMealDBRecipe): RecipeIngredient[] {
 }
 
 /**
+ * Detect if a recipe is vegan based on category or tags
+ */
+function isRecipeVegan(meal: TheMealDBRecipe): boolean {
+  const category = meal.strCategory?.toLowerCase() || "";
+  const tags = meal.strTags?.toLowerCase() || "";
+  return category.includes("vegan") || tags.includes("vegan");
+}
+
+/**
  * Fetch recipes from TheMealDB API and cache them in the database
  * Supports filtering by category
  */
 export async function POST(request: Request) {
   try {
-    const { categories = ["Dessert", "Vegetarian", "Seafood"], limit = 50 } =
+    const { categories = ["Vegan", "Vegetarian", "Dessert"], limit = 50 } =
       await request.json();
 
     let totalCached = 0;
@@ -116,6 +125,7 @@ export async function POST(request: Request) {
                   : [],
                 ingredients,
                 servings: 4,
+                isVegan: isRecipeVegan(meal),
               });
               totalCached++;
             }
@@ -137,6 +147,7 @@ export async function POST(request: Request) {
         success: true,
         cached: totalCached,
         message: `Cached ${totalCached} recipes`,
+        cachedAt: new Date().toISOString(),
         errors: errors.length > 0 ? errors : undefined,
       },
       { status: 200 }
