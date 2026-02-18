@@ -59,6 +59,12 @@ export default function KeyboardBarcodeScanner({
       // Only process if we're active
       if (!isActive || !inputRef.current) return;
 
+      // Don't capture input if user is typing in another input/textarea
+      const target = event.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+        return;
+      }
+
       const key = event.key;
 
       // Handle Enter key - complete the barcode
