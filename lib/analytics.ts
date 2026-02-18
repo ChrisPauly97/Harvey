@@ -114,6 +114,7 @@ export async function shouldSuggestPurchase(
   barcode: string,
   category: "fridge" | "freezer" | "pantry",
   currentQuantity: number,
+  usageLevel: number = 100,
   daysToRunOut: number = 7
 ): Promise<{
   should: boolean;
@@ -122,19 +123,29 @@ export async function shouldSuggestPurchase(
 }> {
   const trend = await analyzeConsumption(barcode, category, 30, currentQuantity);
 
-  // No data rule
+  // Fallback rule: Last item with low usage level (even without consumption history)
+  // Only suggest if quantity = 1 AND usageLevel < 25% to avoid suggesting items that last ages
+  if (currentQuantity === 1 && usageLevel < 25) {
+    return {
+      should: true,
+      reason: "Last item with low usage - consider replenishing",
+      priority: "medium",
+    };
+  }
+
+  // No consumption data, don't suggest further
   if (!trend) {
     return { should: false, reason: "No consumption history", priority: "low" };
   }
 
-  // Low quantity rule: quantity <= 2 AND predicted run-out within 7 days
-  if (currentQuantity <= 2 && trend.predictedRunOut) {
+  // Consumption-based rule: if item is running out based on consumption history
+  if (trend.predictedRunOut && usageLevel < 25) {
     const daysLeft =
       (trend.predictedRunOut.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
     if (daysLeft <= daysToRunOut && daysLeft > 0) {
       return {
         should: true,
-        reason: `Low stock, expected to run out in ${Math.ceil(daysLeft)} days`,
+        reason: `Low usage level with consumption history, expected to run out in ${Math.ceil(daysLeft)} days`,
         priority: daysLeft <= 3 ? "high" : "medium",
       };
     }

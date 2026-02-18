@@ -4,6 +4,8 @@ import { matchIngredients, sortByMatchScore } from "@/lib/matching";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Get recipe suggestions based on current inventory
  *

@@ -87,58 +87,60 @@ export async function POST(request: Request) {
 
 /**
  * Generate auto-suggestions based on inventory trends
- * Rules:
- * 1. Low quantity with consumption history
- * 2. Regularly purchased items due for repurchase
- * 3. Items expiring soon that are regularly repurchased
+ * Optimized to avoid N+1 queries
  */
 async function generateAutoSuggestions() {
   const suggestions: typeof shoppingListItems.$inferSelect[] = [];
 
   try {
-    // Get all items in inventory
-    const inventoryItems = await db.select().from(items).where(eq(items.isOriginal, true));
+    // Get all original items with quantity = 1 AND usageLevel < 25%
+    // This avoids suggesting items that last a long time (like spices)
+    const lowQuantityItems = await db
+      .select()
+      .from(items)
+      .where(and(
+        eq(items.isOriginal, true),
+        eq(items.quantity, 1),
+        sql`${items.usageLevel} < 25`
+      ));
 
-    for (const item of inventoryItems) {
-      // Skip portions
-      if (item.parentId) continue;
+    // Get all items in shopping list that are not purchased (to avoid duplicates)
+    const existingListItems = await db
+      .select()
+      .from(shoppingListItems)
+      .where(eq(shoppingListItems.isPurchased, false));
 
-      const { should, reason, priority } = await shouldSuggestPurchase(
-        item.barcode,
-        item.category,
-        item.quantity
-      );
+    const existingSet = new Set(
+      existingListItems.map((item) => `${item.barcode}:${item.category}`)
+    );
 
-      if (should) {
-        // Check if already in shopping list
-        const existing = await db
-          .select()
-          .from(shoppingListItems)
-          .where(
-            and(
-              eq(shoppingListItems.barcode, item.barcode),
-              eq(shoppingListItems.category, item.category),
-              eq(shoppingListItems.isPurchased, false)
-            )
-          );
+    // For low quantity items, create suggestions
+    for (const item of lowQuantityItems) {
+      const key = `${item.barcode}:${item.category}`;
 
-        if (existing.length === 0) {
-          // Create virtual suggestion (not persisted, returned in response)
-          suggestions.push({
-            id: 0, // Virtual ID for suggestions
-            barcode: item.barcode,
-            name: item.name,
-            category: item.category,
-            source: "auto_suggestion",
-            isPurchased: false,
-            predictedPurchaseDate: null,
-            priority,
-            addedAt: new Date(),
-            purchasedAt: null,
-            notes: reason,
-          });
-        }
-      }
+      // Skip if already in shopping list
+      if (existingSet.has(key)) continue;
+
+      // Determine priority based on quantity
+      const priority = item.quantity === 0 ? "high" : "medium";
+      const reason =
+        item.quantity === 0
+          ? "Out of stock"
+          : `Low stock (${item.quantity} remaining)`;
+
+      suggestions.push({
+        id: 0, // Virtual ID for suggestions
+        barcode: item.barcode,
+        name: item.name,
+        category: item.category,
+        source: "auto_suggestion",
+        isPurchased: false,
+        predictedPurchaseDate: null,
+        priority,
+        addedAt: new Date(),
+        purchasedAt: null,
+        notes: reason,
+      });
     }
   } catch (error) {
     console.error("Error generating auto-suggestions:", error);

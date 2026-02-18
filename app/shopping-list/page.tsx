@@ -104,11 +104,10 @@ export default function ShoppingListPage() {
 
       if (!response.ok) throw new Error("Failed to delete item");
 
-      if (item.source === "manual") {
-        setManualItems(manualItems.filter((i) => i.id !== item.id));
-      } else if (item.source === "recurring") {
-        setRecurringItems(recurringItems.filter((i) => i.id !== item.id));
-      }
+      // Remove from whichever list it belongs to
+      setManualItems(manualItems.filter((i) => i.id !== item.id));
+      setRecurringItems(recurringItems.filter((i) => i.id !== item.id));
+      setSuggestions(suggestions.filter((i) => i.id !== item.id));
     } catch (err) {
       console.error("Error deleting item:", err);
       setError("Failed to delete item");

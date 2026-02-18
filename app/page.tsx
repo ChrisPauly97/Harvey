@@ -77,7 +77,7 @@ export default function Home() {
         throw new Error("Failed to delete item");
       }
 
-      // Revalidate SWR cache
+      // Revalidate SWR cache to update the UI immediately
       mutate();
     } catch (err) {
       alert(`Failed to ${actionText}. Please try again.`);
