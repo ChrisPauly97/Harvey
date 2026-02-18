@@ -164,8 +164,8 @@ export default function Home() {
 
       if (!response.ok) throw new Error("Failed to update item");
 
-      // Revalidate SWR cache
-      mutate();
+      // Revalidate SWR cache to update the UI
+      await mutate();
     } catch (err) {
       throw new Error("Failed to save changes. Please try again.");
     }
