@@ -34,7 +34,7 @@ export default function RecipesPage() {
       setError(null);
 
       try {
-        let url = "/api/recipes/suggestions?limit=50";
+        let url = "/api/recipes/suggestions?limit=50&minMatchScore=75";
         if (filterCategory) {
           url += `&category=${encodeURIComponent(filterCategory)}`;
         }

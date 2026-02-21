@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * Get recipe suggestions based on current inventory
  *
  * Query params:
- * - minMatchScore: minimum % ingredients needed (default: 30)
+ * - minMatchScore: minimum % ingredients needed (default: 75)
  * - maxMissing: max missing ingredients to show (default: 5)
  * - category: filter by recipe category (optional)
  * - limit: max recipes to return (default: 10)
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const minMatchScore = Math.max(
       0,
-      Math.min(100, parseInt(searchParams.get("minMatchScore") || "30", 10))
+      Math.min(100, parseInt(searchParams.get("minMatchScore") || "75", 10))
     );
     const maxMissing = Math.max(
       0,
