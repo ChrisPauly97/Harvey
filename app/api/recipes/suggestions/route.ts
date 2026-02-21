@@ -14,7 +14,6 @@ export const dynamic = "force-dynamic";
  * - maxMissing: max missing ingredients to show (default: 5)
  * - category: filter by recipe category (optional)
  * - limit: max recipes to return (default: 10)
- * - vegan: filter to vegan recipes only (default: true)
  */
 export async function GET(request: Request) {
   try {
@@ -29,7 +28,6 @@ export async function GET(request: Request) {
       parseInt(searchParams.get("maxMissing") || "5", 10)
     );
     const categoryFilter = searchParams.get("category") || undefined;
-    const veganOnly = searchParams.get("vegan") !== "false"; // default true
     const limit = Math.max(1, parseInt(searchParams.get("limit") || "10", 10));
 
     // Fetch all inventory items (excluding portions)
@@ -41,17 +39,7 @@ export async function GET(request: Request) {
     // Fetch recipes with filters
     let allRecipes: typeof recipes.$inferSelect[] = [];
 
-    if (veganOnly && categoryFilter) {
-      allRecipes = await db
-        .select()
-        .from(recipes)
-        .where(and(eq(recipes.isVegan, true), eq(recipes.category, categoryFilter)));
-    } else if (veganOnly) {
-      allRecipes = await db
-        .select()
-        .from(recipes)
-        .where(eq(recipes.isVegan, true));
-    } else if (categoryFilter) {
+    if (categoryFilter) {
       allRecipes = await db
         .select()
         .from(recipes)
