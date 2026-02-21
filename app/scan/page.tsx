@@ -20,6 +20,8 @@ export default function ScanPage() {
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unnamedItem, setUnnamedItem] = useState<ScannedItem | null>(null);
+  const [productName, setProductName] = useState("");
 
   const addItem = async (barcode: string) => {
     try {
@@ -39,6 +41,20 @@ export default function ScanPage() {
       }
 
       const newItem = await response.json();
+
+      // If product wasn't found in any API, prompt user for a name
+      if (newItem.name === barcode) {
+        setUnnamedItem({
+          id: newItem.id,
+          barcode: newItem.barcode,
+          name: newItem.name,
+          category: newItem.category,
+          timestamp: Date.now(),
+        });
+        setProductName("");
+        setLoading(false);
+        return;
+      }
 
       // Add to scanned items with the server-inferred category
       setScannedItems((prev) => [
@@ -77,6 +93,57 @@ export default function ScanPage() {
     if (manualBarcode.trim()) {
       addItem(manualBarcode.trim());
       setManualBarcode("");
+    }
+  };
+
+  const handleProductNameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productName.trim() || !unnamedItem) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/items/${unnamedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: productName.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update item name");
+      }
+
+      const updatedItem = await response.json();
+
+      // Add to scanned items with the new name
+      setScannedItems((prev) => [
+        {
+          id: updatedItem.id,
+          barcode: updatedItem.barcode,
+          name: updatedItem.name,
+          category: updatedItem.category,
+          timestamp: Date.now(),
+        },
+        ...prev,
+      ]);
+
+      // Signal home page to update cache
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "newItemAdded",
+          JSON.stringify({
+            item: updatedItem,
+            timestamp: Date.now(),
+          })
+        );
+      }
+
+      setUnnamedItem(null);
+      setProductName("");
+      setLoading(false);
+    } catch (err) {
+      console.error("Error updating item name:", err);
+      setError("Failed to save product name. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -281,6 +348,56 @@ export default function ScanPage() {
           </div>
         )}
       </div>
+
+      {/* Modal: Name Unknown Product */}
+      {unnamedItem && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Product not found
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              We couldn&apos;t find this barcode in our database. What is it?
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mb-4 font-mono bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded">
+              {unnamedItem.barcode}
+            </p>
+
+            <form onSubmit={handleProductNameSubmit} className="space-y-4">
+              <input
+                type="text"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="Enter product name..."
+                autoFocus
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Delete the item and close modal
+                    fetch(`/api/items/${unnamedItem.id}`, { method: "DELETE" });
+                    setUnnamedItem(null);
+                    setProductName("");
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!productName.trim()}
+                  className="flex-1 px-4 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed transition-all"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -54,6 +54,71 @@ function inferCategoryFromTags(
   return "pantry";
 }
 
+// Helper function to fetch from Open Food Facts
+interface ProductData {
+  name: string;
+  imageUrl: string | null;
+  brand: string | null;
+  category: "fridge" | "freezer" | "pantry";
+  source: string;
+}
+
+async function fetchFromOpenFoodFacts(
+  barcode: string,
+  region: "world" | "japan" = "world"
+): Promise<ProductData | null> {
+  try {
+    const domain = region === "japan" ? "jp-en.openfoodfacts.org" : "world.openfoodfacts.org";
+    const response = await fetch(
+      `https://${domain}/api/v0/product/${barcode}.json`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    const data = await response.json();
+
+    if (data.status === 1 && data.product) {
+      const product = data.product;
+      return {
+        name: product.product_name || barcode,
+        imageUrl: product.image_url || null,
+        brand: product.brands || null,
+        category: product.categories_tags
+          ? inferCategoryFromTags(product.categories_tags)
+          : "pantry",
+        source: `OpenFoodFacts (${region})`,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.warn(`OpenFoodFacts ${region} fetch failed:`, error);
+    return null;
+  }
+}
+
+// Helper function to fetch from EAN-Search API (free)
+async function fetchFromEANSearch(barcode: string): Promise<ProductData | null> {
+  try {
+    const response = await fetch(
+      `https://www.ean-search.org/?q=${barcode}&format=json`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    const data = await response.json();
+
+    if (data.product && data.product.title) {
+      return {
+        name: data.product.title || barcode,
+        imageUrl: data.product.image || null,
+        brand: data.product.brand || null,
+        category: "pantry", // No category inference available
+        source: "EAN-Search",
+      };
+    }
+    return null;
+  } catch (error) {
+    console.warn("EAN-Search fetch failed:", error);
+    return null;
+  }
+}
+
 // Cached function to fetch all items
 const getCachedItems = unstable_cache(
   async () => {
@@ -129,31 +194,47 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch product info from Open Food Facts API
+    // Fetch product info using fallback chain
     let productName = barcode;
     let imageUrl = null;
     let productBrand = brand;
     let inferredCategory: "fridge" | "freezer" | "pantry" = "pantry";
 
-    try {
-      const response = await fetch(
-        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
-      );
-      const data = await response.json();
+    // Try multiple API sources in order
+    let productData: ProductData | null = null;
 
-      if (data.status === 1 && data.product) {
-        productName = data.product.product_name || barcode;
-        imageUrl = data.product.image_url || null;
-        productBrand = productBrand || data.product.brands || null;
+    // 1. Try Open Food Facts World
+    productData = await fetchFromOpenFoodFacts(barcode, "world");
+    if (productData) {
+      console.log(`Found ${barcode} in ${productData.source}`);
+    }
 
-        // If category not provided by client, infer from tags
-        if (!category && data.product.categories_tags) {
-          inferredCategory = inferCategoryFromTags(data.product.categories_tags);
-        }
+    // 2. If not found, try Open Food Facts Japan
+    if (!productData) {
+      productData = await fetchFromOpenFoodFacts(barcode, "japan");
+      if (productData) {
+        console.log(`Found ${barcode} in ${productData.source}`);
       }
-    } catch (apiError) {
-      console.warn("Failed to fetch product data:", apiError);
-      // Continue with barcode as name if API fails
+    }
+
+    // 3. If still not found, try EAN-Search (free API)
+    if (!productData) {
+      productData = await fetchFromEANSearch(barcode);
+      if (productData) {
+        console.log(`Found ${barcode} in ${productData.source}`);
+      }
+    }
+
+    // Use fetched data or defaults
+    if (productData) {
+      productName = productData.name;
+      imageUrl = productData.imageUrl;
+      productBrand = productBrand || productData.brand;
+      if (!category) {
+        inferredCategory = productData.category;
+      }
+    } else {
+      console.warn(`Product ${barcode} not found in any API, using barcode as name`);
     }
 
     // Use provided category or inferred category
