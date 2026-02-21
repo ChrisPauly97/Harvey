@@ -5,6 +5,55 @@ import { NextResponse } from "next/server";
 import { logItemEvent } from "@/lib/events";
 import { unstable_cache, revalidateTag } from "next/cache";
 
+// Infer category from Open Food Facts category tags
+function inferCategoryFromTags(
+  categoriesTags: string[]
+): "fridge" | "freezer" | "pantry" {
+  const tags = categoriesTags.map((t) => t.toLowerCase());
+
+  const frozenTerms = [
+    "frozen",
+    "ice-cream",
+    "ice cream",
+    "frozen-meal",
+    "frozen-dessert",
+    "frozen-food",
+    "ice-cream",
+  ];
+
+  const fridgeTerms = [
+    "dairy",
+    "milk",
+    "cheese",
+    "yogurt",
+    "yoghurt",
+    "meat",
+    "poultry",
+    "fish",
+    "seafood",
+    "fresh",
+    "chilled",
+    "deli",
+    "egg",
+    "butter",
+    "cream",
+    "probiotic",
+  ];
+
+  // Check for frozen products
+  if (tags.some((t) => frozenTerms.some((f) => t.includes(f)))) {
+    return "freezer";
+  }
+
+  // Check for fridge products
+  if (tags.some((t) => fridgeTerms.some((f) => t.includes(f)))) {
+    return "fridge";
+  }
+
+  // Default to pantry
+  return "pantry";
+}
+
 // Cached function to fetch all items
 const getCachedItems = unstable_cache(
   async () => {
@@ -62,7 +111,8 @@ export async function GET() {
 // POST /api/items - Add a new item
 export async function POST(request: Request) {
   try {
-    const { barcode, category = "fridge", expirationDate, brand } = await request.json();
+    const body = await request.json();
+    const { barcode, category, expirationDate, brand } = body;
 
     if (!barcode) {
       return NextResponse.json(
@@ -71,12 +121,43 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!["fridge", "freezer", "pantry"].includes(category)) {
+    // If category is provided explicitly, validate it
+    if (category && !["fridge", "freezer", "pantry"].includes(category)) {
       return NextResponse.json(
         { error: "Category must be 'fridge', 'freezer', or 'pantry'" },
         { status: 400 }
       );
     }
+
+    // Fetch product info from Open Food Facts API
+    let productName = barcode;
+    let imageUrl = null;
+    let productBrand = brand;
+    let inferredCategory: "fridge" | "freezer" | "pantry" = "pantry";
+
+    try {
+      const response = await fetch(
+        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+      );
+      const data = await response.json();
+
+      if (data.status === 1 && data.product) {
+        productName = data.product.product_name || barcode;
+        imageUrl = data.product.image_url || null;
+        productBrand = productBrand || data.product.brands || null;
+
+        // If category not provided by client, infer from tags
+        if (!category && data.product.categories_tags) {
+          inferredCategory = inferCategoryFromTags(data.product.categories_tags);
+        }
+      }
+    } catch (apiError) {
+      console.warn("Failed to fetch product data:", apiError);
+      // Continue with barcode as name if API fails
+    }
+
+    // Use provided category or inferred category
+    const finalCategory = category || inferredCategory;
 
     // Check if an ORIGINAL item already exists in this category
     // (portions can have the same barcode+category, but not original items)
@@ -86,7 +167,7 @@ export async function POST(request: Request) {
       .where(
         and(
           eq(items.barcode, barcode),
-          eq(items.category, category),
+          eq(items.category, finalCategory),
           sql`${items.parentId} IS NULL`
         )
       );
@@ -116,27 +197,6 @@ export async function POST(request: Request) {
       return NextResponse.json(updatedItem, { status: 200 });
     }
 
-    // Fetch product info from Open Food Facts API
-    let productName = barcode;
-    let imageUrl = null;
-    let productBrand = brand;
-
-    try {
-      const response = await fetch(
-        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
-      );
-      const data = await response.json();
-
-      if (data.status === 1 && data.product) {
-        productName = data.product.product_name || barcode;
-        imageUrl = data.product.image_url || null;
-        productBrand = productBrand || data.product.brands || null;
-      }
-    } catch (apiError) {
-      console.warn("Failed to fetch product data:", apiError);
-      // Continue with barcode as name if API fails
-    }
-
     // Parse expiration date if provided
     let parsedExpirationDate = null;
     if (expirationDate) {
@@ -151,7 +211,7 @@ export async function POST(request: Request) {
         name: productName,
         imageUrl,
         quantity: 1,
-        category,
+        category: finalCategory,
         expirationDate: parsedExpirationDate,
         brand: productBrand,
       })

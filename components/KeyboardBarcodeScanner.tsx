@@ -4,18 +4,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 interface KeyboardBarcodeScannerProps {
   onScan: (barcode: string) => void;
+  isActive?: boolean;  // NEW: Allow parent to control scanning state
 }
 
 export default function KeyboardBarcodeScanner({
   onScan,
+  isActive = true,  // Accept isActive as a prop (default: true)
 }: KeyboardBarcodeScannerProps) {
-  const [isActive, setIsActive] = useState(true); // Start active by default
   const [lastScanTime, setLastScanTime] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const barcodeBufferRef = useRef<string>("");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-focus on mount for immediate scanning
+  // Auto-focus on mount/when activated for immediate scanning
   useEffect(() => {
     if (isActive && inputRef.current) {
       inputRef.current.focus();
@@ -116,26 +117,8 @@ export default function KeyboardBarcodeScanner({
     }
   }, [isActive, completeBarcode]);
 
-  const toggleScanning = () => {
-    setIsActive(!isActive);
-    if (!isActive) {
-      // Focus input when starting
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 px-4 py-3 rounded-xl text-sm">
-        <p className="font-semibold mb-2">🔄 Continuous Scanning Mode</p>
-        <ol className="list-decimal list-inside space-y-1 text-xs">
-          <li>Configure your Netum C750 to Keyboard Emulation mode</li>
-          <li>Scanner is ready - just scan items continuously</li>
-          <li>Each scan automatically adds to your inventory</li>
-          <li>No need to click between scans</li>
-        </ol>
-      </div>
-
+    <>
       {/* Hidden input that captures keyboard input */}
       <input
         ref={inputRef}
@@ -150,72 +133,6 @@ export default function KeyboardBarcodeScanner({
           }
         }}
       />
-
-      {/* Status and control */}
-      <div
-        className={`rounded-xl border-2 p-4 transition-all ${
-          isActive
-            ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-            : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className={`font-semibold ${isActive ? "text-green-700 dark:text-green-400" : "text-gray-700 dark:text-gray-400"}`}>
-              {isActive ? "🟢 Listening for barcodes" : "⚪ Scanner ready"}
-            </p>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              {isActive
-                ? "Point scanner at barcode to scan"
-                : "Click button below to start scanning"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Control buttons */}
-      <button
-        onClick={toggleScanning}
-        className={`w-full px-6 py-4 rounded-xl font-semibold shadow-md transition-all active:scale-95 text-white ${
-          isActive
-            ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
-            : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
-        }`}
-      >
-        {isActive ? "⏸️ Pause Continuous Scanning" : "▶️ Resume Continuous Scanning"}
-      </button>
-
-      {/* Scanner configuration instructions */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-xs text-amber-900 dark:text-amber-200 space-y-2">
-        <p className="font-semibold">⚙️ Scanner Configuration</p>
-        <p>To set up your Netum C750 for keyboard emulation:</p>
-        <ol className="list-decimal list-inside space-y-1 ml-2">
-          <li>Open the Netum Scanner app on your phone</li>
-          <li>Go to Settings → Communication Mode</li>
-          <li>Select &quot;Keyboard Emulation&quot; or &quot;HID Mode&quot;</li>
-          <li>Pair the scanner via Bluetooth normally</li>
-          <li>Once paired, scanned data will appear as keyboard input</li>
-        </ol>
-      </div>
-
-      {/* Keyboard shortcuts */}
-      <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 text-xs text-gray-700 dark:text-gray-300 space-y-2">
-        <p className="font-semibold text-gray-900 dark:text-gray-100">Keyboard Shortcuts</p>
-        <ul className="space-y-1">
-          <li>
-            <kbd className="bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-300 dark:border-gray-700">
-              Enter
-            </kbd>{" "}
-            - Complete barcode (manual)
-          </li>
-          <li>
-            <kbd className="bg-white dark:bg-gray-800 px-2 py-1 rounded border border-gray-300 dark:border-gray-700">
-              Esc
-            </kbd>{" "}
-            - Clear input
-          </li>
-        </ul>
-      </div>
-    </div>
+    </>
   );
 }
