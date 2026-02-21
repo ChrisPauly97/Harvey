@@ -60,8 +60,9 @@ export default function KeyboardBarcodeScanner({
       if (!isActive || !inputRef.current) return;
 
       // Don't capture input if user is typing in another input/textarea
+      // (but allow input from our own hidden scanner input)
       const target = event.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+      if ((target.tagName === "INPUT" || target.tagName === "TEXTAREA") && target !== inputRef.current) {
         return;
       }
 
