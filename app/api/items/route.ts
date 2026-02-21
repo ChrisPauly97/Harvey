@@ -177,7 +177,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { barcode, category, expirationDate, brand } = body;
+    const { barcode, category, expirationDate, brand, name } = body;
 
     if (!barcode) {
       return NextResponse.json(
@@ -194,47 +194,60 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch product info using fallback chain
-    let productName = barcode;
+    // If name is explicitly provided (user entered it), use it directly
+    let productName = name || barcode;
     let imageUrl = null;
     let productBrand = brand;
     let inferredCategory: "fridge" | "freezer" | "pantry" = "pantry";
 
-    // Try multiple API sources in order
-    let productData: ProductData | null = null;
+    // Only try API lookups if name wasn't explicitly provided
+    if (!name) {
+      // Try multiple API sources in order
+      let productData: ProductData | null = null;
 
-    // 1. Try Open Food Facts World
-    productData = await fetchFromOpenFoodFacts(barcode, "world");
-    if (productData) {
-      console.log(`Found ${barcode} in ${productData.source}`);
-    }
-
-    // 2. If not found, try Open Food Facts Japan
-    if (!productData) {
-      productData = await fetchFromOpenFoodFacts(barcode, "japan");
+      // 1. Try Open Food Facts World
+      productData = await fetchFromOpenFoodFacts(barcode, "world");
       if (productData) {
         console.log(`Found ${barcode} in ${productData.source}`);
       }
-    }
 
-    // 3. If still not found, try EAN-Search (free API)
-    if (!productData) {
-      productData = await fetchFromEANSearch(barcode);
+      // 2. If not found, try Open Food Facts Japan
+      if (!productData) {
+        productData = await fetchFromOpenFoodFacts(barcode, "japan");
+        if (productData) {
+          console.log(`Found ${barcode} in ${productData.source}`);
+        }
+      }
+
+      // 3. If still not found, try EAN-Search (free API)
+      if (!productData) {
+        productData = await fetchFromEANSearch(barcode);
+        if (productData) {
+          console.log(`Found ${barcode} in ${productData.source}`);
+        }
+      }
+
+      // Use fetched data or mark as not found
       if (productData) {
-        console.log(`Found ${barcode} in ${productData.source}`);
+        productName = productData.name;
+        imageUrl = productData.imageUrl;
+        productBrand = productBrand || productData.brand;
+        if (!category) {
+          inferredCategory = productData.category;
+        }
+      } else {
+        // Product not found in any API - don't create item yet
+        console.warn(`Product ${barcode} not found in any API`);
+        return NextResponse.json(
+          {
+            notFound: true,
+            barcode,
+            category: category || inferredCategory,
+            message: "Product not found. Please provide a name.",
+          },
+          { status: 202 } // 202 Accepted - awaiting user input
+        );
       }
-    }
-
-    // Use fetched data or defaults
-    if (productData) {
-      productName = productData.name;
-      imageUrl = productData.imageUrl;
-      productBrand = productBrand || productData.brand;
-      if (!category) {
-        inferredCategory = productData.category;
-      }
-    } else {
-      console.warn(`Product ${barcode} not found in any API, using barcode as name`);
     }
 
     // Use provided category or inferred category

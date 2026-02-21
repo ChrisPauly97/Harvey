@@ -36,25 +36,28 @@ export default function ScanPage() {
         body: JSON.stringify({ barcode }),  // NO category - let server infer
       });
 
+      const data = await response.json();
+
+      // 202: Product not found in any API, ask user for name
+      if (response.status === 202) {
+        setUnnamedItem({
+          id: 0, // Temporary ID, will be set when created
+          barcode: data.barcode,
+          name: data.barcode,
+          category: data.category,
+          timestamp: Date.now(),
+        });
+        setProductName("");
+        setScanning(false); // Pause scanner so user can type
+        setLoading(false);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error("Failed to add item");
       }
 
-      const newItem = await response.json();
-
-      // If product wasn't found in any API, prompt user for a name
-      if (newItem.name === barcode) {
-        setUnnamedItem({
-          id: newItem.id,
-          barcode: newItem.barcode,
-          name: newItem.name,
-          category: newItem.category,
-          timestamp: Date.now(),
-        });
-        setProductName("");
-        setLoading(false);
-        return;
-      }
+      const newItem = data;
 
       // Add to scanned items with the server-inferred category
       setScannedItems((prev) => [
@@ -102,25 +105,30 @@ export default function ScanPage() {
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/items/${unnamedItem.id}`, {
-        method: "PATCH",
+      // Create the item now that user provided a name
+      const response = await fetch("/api/items", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: productName.trim() }),
+        body: JSON.stringify({
+          barcode: unnamedItem.barcode,
+          name: productName.trim(),
+          category: unnamedItem.category,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update item name");
+        throw new Error("Failed to create item");
       }
 
-      const updatedItem = await response.json();
+      const newItem = await response.json();
 
       // Add to scanned items with the new name
       setScannedItems((prev) => [
         {
-          id: updatedItem.id,
-          barcode: updatedItem.barcode,
-          name: updatedItem.name,
-          category: updatedItem.category,
+          id: newItem.id,
+          barcode: newItem.barcode,
+          name: newItem.name,
+          category: newItem.category,
           timestamp: Date.now(),
         },
         ...prev,
@@ -131,7 +139,7 @@ export default function ScanPage() {
         window.localStorage.setItem(
           "newItemAdded",
           JSON.stringify({
-            item: updatedItem,
+            item: newItem,
             timestamp: Date.now(),
           })
         );
@@ -139,9 +147,10 @@ export default function ScanPage() {
 
       setUnnamedItem(null);
       setProductName("");
+      setScanning(true); // Resume scanning after save
       setLoading(false);
     } catch (err) {
-      console.error("Error updating item name:", err);
+      console.error("Error creating item:", err);
       setError("Failed to save product name. Please try again.");
       setLoading(false);
     }
@@ -377,10 +386,10 @@ export default function ScanPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    // Delete the item and close modal
-                    fetch(`/api/items/${unnamedItem.id}`, { method: "DELETE" });
+                    // Close modal without creating item
                     setUnnamedItem(null);
                     setProductName("");
+                    setScanning(true); // Resume scanning
                   }}
                   className="flex-1 px-4 py-2 rounded-lg font-semibold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
