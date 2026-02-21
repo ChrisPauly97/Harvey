@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { items, shoppingListItems } from "@/lib/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { items, shoppingListItems, itemEvents } from "@/lib/schema";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { shouldSuggestPurchase } from "@/lib/analytics";
 
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
 /**
  * Generate auto-suggestions based on inventory trends
  * Optimized to avoid N+1 queries
+ * Includes low quantity items and recently finished items
  */
 async function generateAutoSuggestions() {
   const suggestions: typeof shoppingListItems.$inferSelect[] = [];
@@ -103,6 +104,20 @@ async function generateAutoSuggestions() {
         eq(items.quantity, 1),
         sql`${items.usageLevel} < 25`
       ));
+
+    // Get items deleted in the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentlyDeletedEvents = await db
+      .select()
+      .from(itemEvents)
+      .where(
+        and(
+          eq(itemEvents.eventType, "deleted"),
+          gte(itemEvents.timestamp, sevenDaysAgo)
+        )
+      )
+      .orderBy(desc(itemEvents.timestamp));
 
     // Get all items in shopping list that are not purchased (to avoid duplicates)
     const existingListItems = await db
@@ -142,6 +157,41 @@ async function generateAutoSuggestions() {
         notes: reason,
       });
     }
+
+    // For recently deleted items, create suggestions
+    // Group by barcode:category to avoid duplicates (keep most recent deletion)
+    const deletedByKey = new Map<string, (typeof itemEvents.$inferSelect)>();
+    for (const event of recentlyDeletedEvents) {
+      const key = `${event.barcode}:${event.category}`;
+      if (!deletedByKey.has(key)) {
+        deletedByKey.set(key, event);
+      }
+    }
+
+    deletedByKey.forEach((event, key) => {
+      // Skip if already in shopping list
+      if (existingSet.has(key)) return;
+
+      // Skip if this item is already suggested from low quantity
+      const alreadySuggested = suggestions.some(
+        (s) => `${s.barcode}:${s.category}` === key
+      );
+      if (alreadySuggested) return;
+
+      suggestions.push({
+        id: 0, // Virtual ID for suggestions
+        barcode: event.barcode,
+        name: event.name,
+        category: event.category,
+        source: "auto_suggestion",
+        isPurchased: false,
+        predictedPurchaseDate: null,
+        priority: "high",
+        addedAt: new Date(),
+        purchasedAt: null,
+        notes: "Recently finished - consider replenishing",
+      });
+    });
   } catch (error) {
     console.error("Error generating auto-suggestions:", error);
     // Return empty suggestions if generation fails
