@@ -61,22 +61,28 @@ interface ProductData {
   brand: string | null;
   category: "fridge" | "freezer" | "pantry";
   source: string;
+  caloriesPer100g: number | null;
+  fatPer100g: number | null;
+  carbohydratesPer100g: number | null;
+  proteinPer100g: number | null;
+  fiberPer100g: number | null;
+  servingSize: string | null;
+  nutriScore: string | null;
 }
 
 async function fetchFromOpenFoodFacts(
-  barcode: string,
-  region: "world" | "japan" = "world"
+  barcode: string
 ): Promise<ProductData | null> {
   try {
-    const domain = region === "japan" ? "jp-en.openfoodfacts.org" : "world.openfoodfacts.org";
     const response = await fetch(
-      `https://${domain}/api/v0/product/${barcode}.json`,
-      { signal: AbortSignal.timeout(5000) }
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
+      { signal: AbortSignal.timeout(2000) }
     );
     const data = await response.json();
 
     if (data.status === 1 && data.product) {
       const product = data.product;
+      const nutriments = product.nutriments || {};
       return {
         name: product.product_name || barcode,
         imageUrl: product.image_url || null,
@@ -84,12 +90,19 @@ async function fetchFromOpenFoodFacts(
         category: product.categories_tags
           ? inferCategoryFromTags(product.categories_tags)
           : "pantry",
-        source: `OpenFoodFacts (${region})`,
+        source: "OpenFoodFacts",
+        caloriesPer100g: nutriments["energy-kcal_100g"] ?? null,
+        fatPer100g: nutriments["fat_100g"] ?? null,
+        carbohydratesPer100g: nutriments["carbohydrates_100g"] ?? null,
+        proteinPer100g: nutriments["proteins_100g"] ?? null,
+        fiberPer100g: nutriments["fiber_100g"] ?? null,
+        servingSize: product.serving_size || null,
+        nutriScore: product.nutrition_grades || null,
       };
     }
     return null;
   } catch (error) {
-    console.warn(`OpenFoodFacts ${region} fetch failed:`, error);
+    console.warn("OpenFoodFacts fetch failed:", error);
     return null;
   }
 }
@@ -99,7 +112,7 @@ async function fetchFromEANSearch(barcode: string): Promise<ProductData | null> 
   try {
     const response = await fetch(
       `https://www.ean-search.org/?q=${barcode}&format=json`,
-      { signal: AbortSignal.timeout(5000) }
+      { signal: AbortSignal.timeout(2000) }
     );
     const data = await response.json();
 
@@ -110,6 +123,13 @@ async function fetchFromEANSearch(barcode: string): Promise<ProductData | null> 
         brand: data.product.brand || null,
         category: "pantry", // No category inference available
         source: "EAN-Search",
+        caloriesPer100g: null,
+        fatPer100g: null,
+        carbohydratesPer100g: null,
+        proteinPer100g: null,
+        fiberPer100g: null,
+        servingSize: null,
+        nutriScore: null,
       };
     }
     return null;
@@ -140,6 +160,13 @@ const getCachedItems = unstable_cache(
         portionUnit: items.portionUnit,
         portionAmount: items.portionAmount,
         isOriginal: items.isOriginal,
+        caloriesPer100g: items.caloriesPer100g,
+        fatPer100g: items.fatPer100g,
+        carbohydratesPer100g: items.carbohydratesPer100g,
+        proteinPer100g: items.proteinPer100g,
+        fiberPer100g: items.fiberPer100g,
+        servingSize: items.servingSize,
+        nutriScore: items.nutriScore,
         childCount: sql<number>`(SELECT COUNT(*) FROM ${items} AS c WHERE c.parent_id = ${items.id})`.as('childCount'),
       })
       .from(items)
@@ -199,27 +226,18 @@ export async function POST(request: Request) {
     let imageUrl = null;
     let productBrand = brand;
     let inferredCategory: "fridge" | "freezer" | "pantry" = "pantry";
+    let productData: ProductData | null = null;
 
     // Only try API lookups if name wasn't explicitly provided
     if (!name) {
-      // Try multiple API sources in order
-      let productData: ProductData | null = null;
-
-      // 1. Try Open Food Facts World
-      productData = await fetchFromOpenFoodFacts(barcode, "world");
+      // Try multiple API sources in order (with short timeouts)
+      // 1. Try Open Food Facts (2s timeout)
+      productData = await fetchFromOpenFoodFacts(barcode);
       if (productData) {
         console.log(`Found ${barcode} in ${productData.source}`);
       }
 
-      // 2. If not found, try Open Food Facts Japan
-      if (!productData) {
-        productData = await fetchFromOpenFoodFacts(barcode, "japan");
-        if (productData) {
-          console.log(`Found ${barcode} in ${productData.source}`);
-        }
-      }
-
-      // 3. If still not found, try EAN-Search (free API)
+      // 2. If not found, try EAN-Search (2s timeout)
       if (!productData) {
         productData = await fetchFromEANSearch(barcode);
         if (productData) {
@@ -297,6 +315,29 @@ export async function POST(request: Request) {
       parsedExpirationDate = new Date(expirationDate);
     }
 
+    // Extract nutrition data if available
+    let nutritionData = {
+      caloriesPer100g: null as number | null,
+      fatPer100g: null as number | null,
+      carbohydratesPer100g: null as number | null,
+      proteinPer100g: null as number | null,
+      fiberPer100g: null as number | null,
+      servingSize: null as string | null,
+      nutriScore: null as string | null,
+    };
+
+    if (productData) {
+      nutritionData = {
+        caloriesPer100g: productData.caloriesPer100g,
+        fatPer100g: productData.fatPer100g,
+        carbohydratesPer100g: productData.carbohydratesPer100g,
+        proteinPer100g: productData.proteinPer100g,
+        fiberPer100g: productData.fiberPer100g,
+        servingSize: productData.servingSize,
+        nutriScore: productData.nutriScore,
+      };
+    }
+
     // Insert new item into database
     const [newItem] = await db
       .insert(items)
@@ -308,6 +349,13 @@ export async function POST(request: Request) {
         category: finalCategory,
         expirationDate: parsedExpirationDate,
         brand: productBrand,
+        caloriesPer100g: nutritionData.caloriesPer100g,
+        fatPer100g: nutritionData.fatPer100g,
+        carbohydratesPer100g: nutritionData.carbohydratesPer100g,
+        proteinPer100g: nutritionData.proteinPer100g,
+        fiberPer100g: nutritionData.fiberPer100g,
+        servingSize: nutritionData.servingSize,
+        nutriScore: nutritionData.nutriScore,
       })
       .returning();
 

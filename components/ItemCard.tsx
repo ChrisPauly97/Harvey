@@ -101,17 +101,39 @@ export default function ItemCard({
             <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100 leading-tight">
               {item.name}
             </h3>
-            <span
-              className={`px-2 py-1 rounded-md text-xs font-medium flex-shrink-0 ${
-                item.category === "fridge"
-                  ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
-                  : item.category === "freezer"
-                  ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
-                  : "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
-              }`}
-            >
-              {item.category === "fridge" ? "Fridge" : item.category === "freezer" ? "Freezer" : "Pantry"}
-            </span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Nutri-Score Badge */}
+              {item.nutriScore && (
+                <span
+                  className={`px-2 py-1 rounded-md text-xs font-bold ${
+                    item.nutriScore === "a"
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                      : item.nutriScore === "b"
+                      ? "bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-400"
+                      : item.nutriScore === "c"
+                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                      : item.nutriScore === "d"
+                      ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                  }`}
+                  title="Nutri-Score"
+                >
+                  {item.nutriScore.toUpperCase()}
+                </span>
+              )}
+              {/* Category Badge */}
+              <span
+                className={`px-2 py-1 rounded-md text-xs font-medium ${
+                  item.category === "fridge"
+                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                    : item.category === "freezer"
+                    ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
+                    : "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+                }`}
+              >
+                {item.category === "fridge" ? "Fridge" : item.category === "freezer" ? "Freezer" : "Pantry"}
+              </span>
+            </div>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
             {item.barcode}
@@ -179,6 +201,31 @@ export default function ItemCard({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               Brand: {item.brand}
             </p>
+          )}
+
+          {/* Nutrition Info */}
+          {item.caloriesPer100g && (
+            <div className="mt-2">
+              <div className="text-xs text-gray-600 dark:text-gray-400 flex flex-wrap gap-2">
+                {item.caloriesPer100g && (
+                  <span>🔥 {Math.round(item.caloriesPer100g)} kcal</span>
+                )}
+                {item.proteinPer100g && (
+                  <span>🥩 {Math.round(item.proteinPer100g * 10) / 10}g protein</span>
+                )}
+                {item.carbohydratesPer100g && (
+                  <span>🍞 {Math.round(item.carbohydratesPer100g * 10) / 10}g carbs</span>
+                )}
+                {item.fatPer100g && (
+                  <span>💧 {Math.round(item.fatPer100g * 10) / 10}g fat</span>
+                )}
+              </div>
+              {item.servingSize && (
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  Per 100g {item.servingSize ? `(serving: ${item.servingSize})` : ""}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Tags */}

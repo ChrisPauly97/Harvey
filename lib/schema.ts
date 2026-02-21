@@ -29,6 +29,14 @@ export const items = sqliteTable(
     isRecurring: integer("is_recurring", { mode: "boolean" }).notNull().default(false),
     recurringInterval: text("recurring_interval", { enum: ["weekly", "biweekly", "monthly"] }),
     lastPurchaseDate: integer("last_purchase_date", { mode: "timestamp" }),
+    // Phase 6: Nutrition data (from Open Food Facts)
+    caloriesPer100g: real("calories_per_100g"),
+    fatPer100g: real("fat_per_100g"),
+    carbohydratesPer100g: real("carbohydrates_per_100g"),
+    proteinPer100g: real("protein_per_100g"),
+    fiberPer100g: real("fiber_per_100g"),
+    servingSize: text("serving_size"),
+    nutriScore: text("nutri_score"),
   },
   (table) => ({
     // Partial unique index: only applies to original items (parentId IS NULL)
