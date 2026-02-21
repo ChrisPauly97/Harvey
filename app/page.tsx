@@ -18,6 +18,7 @@ export default function Home() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const [sortBy, setSortBy] = useState<"default" | "expiryDate" | "addedDate" | "alphabetical">("default");
+  const [searchQuery, setSearchQuery] = useState("");
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [itemToSplit, setItemToSplit] = useState<Item | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -280,6 +281,15 @@ export default function Home() {
     if (filter !== "all" && item.category !== filter) return false;
     // Tag filter
     if (tagFilter && (!item.tags || !item.tags.includes(tagFilter))) return false;
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        item.name.toLowerCase().includes(q) ||
+        (item.brand && item.brand.toLowerCase().includes(q)) ||
+        item.barcode.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+    }
     return true;
   });
 
@@ -390,7 +400,10 @@ export default function Home() {
         {/* Category Filter Buttons */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
           <button
-            onClick={() => setFilter("all")}
+            onClick={() => {
+              setFilter("all");
+              setSearchQuery("");
+            }}
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "all"
                 ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md"
@@ -400,7 +413,10 @@ export default function Home() {
             All <span className="opacity-70">({items.length})</span>
           </button>
           <button
-            onClick={() => setFilter("fridge")}
+            onClick={() => {
+              setFilter("fridge");
+              setSearchQuery("");
+            }}
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "fridge"
                 ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-md"
@@ -413,7 +429,10 @@ export default function Home() {
             </span>
           </button>
           <button
-            onClick={() => setFilter("freezer")}
+            onClick={() => {
+              setFilter("freezer");
+              setSearchQuery("");
+            }}
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "freezer"
                 ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md"
@@ -426,7 +445,10 @@ export default function Home() {
             </span>
           </button>
           <button
-            onClick={() => setFilter("pantry")}
+            onClick={() => {
+              setFilter("pantry");
+              setSearchQuery("");
+            }}
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex-shrink-0 ${
               filter === "pantry"
                 ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md"
@@ -438,6 +460,17 @@ export default function Home() {
               ({items.filter((i) => i.category === "pantry").length})
             </span>
           </button>
+        </div>
+
+        {/* Search Input */}
+        <div className="px-0 mb-4">
+          <input
+            type="search"
+            placeholder="Search ingredients..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 text-sm"
+          />
         </div>
 
         {/* Tag Filter Buttons */}
@@ -557,10 +590,12 @@ export default function Home() {
         ) : sortedItems.length === 0 ? (
           <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="text-6xl mb-4">
-              {filter === "fridge" ? "🧊" : filter === "freezer" ? "❄️" : "🥫"}
+              {searchQuery.trim() ? "🔍" : filter === "fridge" ? "🧊" : filter === "freezer" ? "❄️" : "🥫"}
             </div>
             <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
-              No items in {filter === "fridge" ? "fridge" : filter === "freezer" ? "freezer" : "pantry"}
+              {searchQuery.trim()
+                ? `No items matching "${searchQuery}"`
+                : `No items in ${filter === "fridge" ? "fridge" : filter === "freezer" ? "freezer" : "pantry"}`}
             </p>
           </div>
         ) : (
