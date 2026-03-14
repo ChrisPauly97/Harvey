@@ -180,3 +180,103 @@ export type ItemEvent = typeof itemEvents.$inferSelect;
 export type NewItemEvent = typeof itemEvents.$inferInsert;
 export type ShoppingListItem = typeof shoppingListItems.$inferSelect;
 export type NewShoppingListItem = typeof shoppingListItems.$inferInsert;
+
+// Coffee tracking tables
+export const equipment = sqliteTable(
+  "equipment",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    brand: text("brand"),
+    type: text("type", {
+      enum: ["grinder", "espresso_machine", "pour_over", "other"],
+    }).notNull(),
+    notes: text("notes"),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    addedAt: integer("added_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    typeIdx: index("equipment_type_idx").on(table.type),
+  })
+);
+
+export type Equipment = typeof equipment.$inferSelect;
+export type NewEquipment = typeof equipment.$inferInsert;
+
+export const coffees = sqliteTable(
+  "coffees",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    origin: text("origin"),
+    roaster: text("roaster"),
+    roastDate: text("roast_date"), // ISO "YYYY-MM-DD"
+    roastLevel: text("roast_level", {
+      enum: ["light", "medium", "medium-dark", "dark"],
+    }),
+    process: text("process"),
+    variety: text("variety"),
+    description: text("description"),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    imageUrl: text("image_url"),
+    addedAt: integer("added_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    isActiveIdx: index("coffees_is_active_idx").on(table.isActive),
+  })
+);
+
+export type Coffee = typeof coffees.$inferSelect;
+export type NewCoffee = typeof coffees.$inferInsert;
+export type CoffeeWithBrewCount = Coffee & { brewCount: number };
+
+export const brews = sqliteTable(
+  "brews",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    coffeeId: integer("coffee_id").references(() => coffees.id, { onDelete: "set null" }),
+    brewingDeviceId: integer("brewing_device_id").references(() => equipment.id, { onDelete: "set null" }),
+    grinderId: integer("grinder_id").references(() => equipment.id, { onDelete: "set null" }),
+    brewMethod: text("brew_method", {
+      enum: [
+        "pour_over",
+        "espresso",
+        "aeropress",
+        "french_press",
+        "chemex",
+        "v60",
+        "kalita",
+        "moka_pot",
+        "cold_brew",
+        "other",
+      ],
+    }).notNull(),
+    grindSize: text("grind_size"),
+    weightIn: real("weight_in"),
+    weightOut: real("weight_out"),
+    extractionTime: integer("extraction_time"), // seconds
+    waterTemperature: integer("water_temperature"), // Celsius
+    tastingNotes: text("tasting_notes"),
+    rating: integer("rating"), // 1-5
+    notes: text("notes"),
+    brewedAt: integer("brewed_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    coffeeIdIdx: index("brews_coffee_id_idx").on(table.coffeeId),
+    brewedAtIdx: index("brews_brewed_at_idx").on(table.brewedAt),
+  })
+);
+
+export type Brew = typeof brews.$inferSelect;
+export type NewBrew = typeof brews.$inferInsert;
+export type BrewWithRelations = Brew & {
+  coffeeName: string | null;
+  brewingDeviceName: string | null;
+  grinderName: string | null;
+};

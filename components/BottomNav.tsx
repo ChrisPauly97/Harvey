@@ -19,6 +19,7 @@ export default function BottomNav({
   const isShopping = pathname === "/shopping-list";
   const isRecipes = pathname === "/recipes";
   const isBooks = pathname === "/books" || pathname.startsWith("/books/");
+  const isCoffee = pathname === "/coffee";
 
   return (
     <div className="fixed bottom-0 inset-x-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-40 safe-bottom">
@@ -77,6 +78,16 @@ export default function BottomNav({
               {booksCount > 99 ? "99+" : booksCount}
             </span>
           )}
+        </Link>
+        <Link
+          href="/coffee"
+          className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
+            isCoffee
+              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+              : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+          }`}
+        >
+          ☕ Coffee
         </Link>
       </div>
     </div>

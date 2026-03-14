@@ -1,0 +1,49 @@
+name: Apply DB Migrations
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'drizzle/**.sql'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply migrations
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          pip install libsql-client --quiet
+          python3 << 'PYEOF'
+          import asyncio, glob, os, libsql_client
+
+          async def main():
+              url = os.environ["TURSO_DATABASE_URL"]
+              token = os.environ["TURSO_AUTH_TOKEN"]
+
+              files = sorted(glob.glob("drizzle/*.sql"))
+              if not files:
+                  print("No migration files found")
+                  return
+
+              async with libsql_client.create_client(url=url, auth_token=token) as client:
+                  for path in files:
+                      print(f"\nApplying {path}...")
+                      sql = open(path).read()
+                      statements = [s.strip() for s in sql.split(";") if s.strip()]
+                      for stmt in statements:
+                          await client.execute(stmt)
+                          print(f"  ✓ {stmt[:70]}...")
+
+                  result = await client.execute(
+                      "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                  )
+                  print("\nTables:", [r[0] for r in result.rows])
+
+          asyncio.run(main())
+          PYEOF
