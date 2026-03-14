@@ -43,3 +43,4 @@ CREATE TABLE IF NOT EXISTS `brews` (
 );
 CREATE INDEX IF NOT EXISTS `brews_coffee_id_idx` ON `brews` (`coffee_id`);
 CREATE INDEX IF NOT EXISTS `brews_brewed_at_idx` ON `brews` (`brewed_at`);
+
