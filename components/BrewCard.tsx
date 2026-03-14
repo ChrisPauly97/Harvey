@@ -130,7 +130,7 @@ export default function BrewCard({ brew, onDelete }: BrewCardProps) {
       {/* Tasting notes */}
       {brew.tastingNotes && (
         <p className="text-sm italic text-gray-600 dark:text-gray-400 line-clamp-2">
-          "{brew.tastingNotes}"
+          &ldquo;{brew.tastingNotes}&rdquo;
         </p>
       )}
 
